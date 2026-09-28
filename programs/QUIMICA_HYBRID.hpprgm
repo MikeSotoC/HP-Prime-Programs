@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.7.0 - HP Prime G1/G2
+// QUIMICA HYBRID 2.7.1 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -1707,6 +1707,7 @@ BEGIN
  LOCAL ultimoY:=0;
  LOCAL nuevo;
  LOCAL redibujar:=1;
+ TP_LIMPIAR_BUFFER();
  REPEAT
   IF redibujar THEN
    RECT_P(#E2E7E8);
