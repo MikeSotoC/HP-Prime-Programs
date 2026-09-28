@@ -138,18 +138,69 @@ try:
     c=float(gv('QC')); d=float(gv('QD'))
     if 101<=op<=103:
         f,l,e=planck(op,a)
-        ok(f,l,e,'f = '+sci(f)+' Hz\nlambda = '+sci(l)+' m\nE = '+sci(e)+' J\nE = '+sci(e/EV)+' eV')
+        if op==101:
+            data='lambda = '+sci(a)+' nm\nlambda = '+sci(l)+' m'
+        elif op==102:
+            data='f = '+sci(a)+' Hz'
+        else:
+            data='E = '+sci(a)+' J'
+        text=('1. DATOS\n'+data+'\n\n2. FORMULAS\n'
+              'c = lambda * f\nE = h * f\n\n3. SUSTITUCION\n'
+              'f = c / lambda\nf = '+sci(C)+' / '+sci(l)+'\n'
+              'f = '+sci(f)+' Hz\nE = ('+sci(H)+')('+sci(f)+')\n'
+              'E = '+sci(e)+' J\n\n4. RESULTADO\n'
+              'lambda = '+sci(l)+' m\nf = '+sci(f)+' Hz\n'
+              'E = '+sci(e)+' J\nE = '+sci(e/EV)+' eV')
+        ok(f,l,e,text)
     elif 201<=op<=202:
         x,y,z=bohr(op,a,b)
-        if op==201: ok(x,y,z,'Radio = '+sci(x)+' A\nVelocidad = '+sci(y)+' cm/s\nEnergia = '+sci(z)+' eV')
-        else: ok(x,y,z,'Delta E = '+sci(x)+' eV\n|E| = '+sci(y)+' J\nlambda = '+sci(z)+' m')
+        if op==201:
+            text=('1. DATOS\nn = '+str(int(a))+'\n\n2. FORMULAS\n'
+                  'rn = 0.529 * n^2\nVn = 2.18769E8 / n\nEn = -13.6057 / n^2\n\n'
+                  '3. SUSTITUCION\nrn = 0.529('+str(int(a))+')^2\n'
+                  'Vn = 2.18769E8 / '+str(int(a))+'\n'
+                  'En = -13.6057 / '+str(int(a))+'^2\n\n4. RESULTADO\n'
+                  'Radio = '+sci(x)+' A\nVelocidad = '+sci(y)+' cm/s\nEnergia = '+sci(z)+' eV')
+            ok(x,y,z,text)
+        else:
+            kind='EMISION' if x<0 else 'ABSORCION'
+            text=('1. DATOS\nni = '+str(int(a))+'\nnf = '+str(int(b))+'\n\n'
+                  '2. FORMULA\nDeltaE = 13.6057(1/ni^2 - 1/nf^2)\n'
+                  'E(foton) = |DeltaE|\nlambda = h*c/E\n\n3. SUSTITUCION\n'
+                  'DeltaE = 13.6057(1/'+str(int(a))+'^2 - 1/'+str(int(b))+'^2)\n'
+                  'DeltaE = '+sci(x)+' eV\nE(foton) = '+sci(y)+' J\n\n'
+                  '4. RESULTADO\nTipo = '+kind+'\nlambda = '+sci(z)+' m\n'
+                  'lambda = '+sci(z*1e9)+' nm\nf = '+sci(C/z)+' Hz')
+            ok(x,y,z,text)
     elif 301<=op<=303:
-        kg,e,ev=einstein(op,a); ok(kg,e,ev,'m = '+sci(kg)+' kg\nE = '+sci(e)+' J\nE = '+sci(ev)+' eV')
+        kg,e,ev=einstein(op,a)
+        known=('m = '+sci(a)+' kg' if op==301 else
+               'm = '+sci(a)+' g = '+sci(kg)+' kg' if op==302 else
+               'E = '+sci(a)+' J')
+        formula='E = m*c^2' if op<303 else 'm = E/c^2'
+        subst=('E = ('+sci(kg)+')('+sci(C)+')^2' if op<303 else
+               'm = '+sci(e)+' / ('+sci(C)+')^2')
+        text=('1. DATOS\n'+known+'\nc = '+sci(C)+' m/s\n\n2. FORMULA\n'+formula+
+              '\n\n3. SUSTITUCION\n'+subst+'\n\n4. RESULTADO\n'
+              'm = '+sci(kg)+' kg\nm = '+sci(kg*1000)+' g\n'
+              'E = '+sci(e)+' J\nE = '+sci(e*1e7)+' erg')
+        ok(kg,e,ev,text)
     elif op==401:
-        p,n,e=atom(a,b,c); ok(p,n,e,'Protones = '+str(p)+'\nNeutrones = '+str(n)+'\nElectrones = '+str(e))
+        p,n,e=atom(a,b,c)
+        species='NEUTRO' if c==0 else ('CATION' if c>0 else 'ANION')
+        text=('1. DATOS\nZ = '+str(int(a))+'\nA = '+str(int(b))+'\nCarga = '+str(int(c))+
+              '\n\n2. RELACIONES\np+ = Z\nn = A - Z\ne- = Z - carga\n\n'
+              '3. SUSTITUCION\nn = '+str(int(b))+' - '+str(int(a))+'\n'
+              'e- = '+str(int(a))+' - ('+str(int(c))+')\n\n4. RESULTADO\n'
+              'Protones = '+str(p)+'\nNeutrones = '+str(n)+'\nElectrones = '+str(e)+'\nEspecie = '+species)
+        ok(p,n,e,text)
     elif op==402:
         sym,cfg,period,group,valence,family,block=electron_config(a)
-        ok(a,period,group,sym+'  Z='+str(int(a))+'\nConfiguracion:\n'+cfg+'\nGrupo = '+str(group)+'   Periodo = '+str(period)+'\nValencia = '+str(valence)+'\nFamilia = '+family+'\nBloque = '+block)
+        text=('1. ELEMENTO\n'+sym+'   Z = '+str(int(a))+'\n\n2. REGLA DE LLENADO\n'
+              'Aufbau + Pauli + Hund\n\n3. CONFIGURACION\n'+cfg+'\n\n'
+              '4. ANALISIS\nGrupo = '+str(group)+'\nPeriodo = '+str(period)+
+              '\nElectrones de valencia = '+str(valence)+'\nFamilia = '+family+'\nBloque = '+block)
+        ok(a,period,group,text)
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -195,28 +246,60 @@ END;
 
 QH_RESULT(titulo,texto)
 BEGIN
+ LOCAL lineas:=QH_LINEAS(texto);
+ LOCAL pagina:=1;
+ LOCAL porPagina:=8;
+ LOCAL paginas:=MAX(1,CEILING(SIZE(lineas)/porPagina));
+ LOCAL inicio,i,y,tecla:=-1;
+ REPEAT
+  RECT_P(#E8EEF2);
+  RECT_P(0,0,319,39,#183B56,#183B56);
+  RECT_P(0,40,319,43,#2B7A78,#2B7A78);
+  TEXTOUT_P(titulo,10,8,2,#FFFFFF);
+  inicio:=(pagina-1)*porPagina+1;
+  FOR i FROM 0 TO porPagina-1 DO
+   IF inicio+i<=SIZE(lineas) THEN
+    y:=52+i*19;
+    IF INSTRING(lineas(inicio+i),"1. ")==1 OR INSTRING(lineas(inicio+i),"2. ")==1 OR INSTRING(lineas(inicio+i),"3. ")==1 OR INSTRING(lineas(inicio+i),"4. ")==1 THEN
+     TEXTOUT_P(lineas(inicio+i),10,y,1,#0B5566,300,#E8EEF2);
+    ELSE
+     TEXTOUT_P(lineas(inicio+i),10,y,1,#102A43,300,#E8EEF2);
+    END;
+   END;
+  END;
+  RECT_P(0,216,93,239,#183B56,#183B56);
+  RECT_P(95,216,224,239,#526D82,#526D82);
+  RECT_P(226,216,319,239,#183B56,#183B56);
+  TEXTOUT_P("< ANT",15,222,1,#FFFFFF);
+  TEXTOUT_P(STRING(pagina)+" / "+STRING(paginas),139,222,1,#FFFFFF);
+  TEXTOUT_P("SIG >",252,222,1,#FFFFFF);
+  REPEAT tecla:=GETKEY; WAIT(0.04); UNTIL tecla<>-1 OR MOUSE(0)>=0;
+  IF tecla==7 OR tecla==2 THEN pagina:=MAX(1,pagina-1); END;
+  IF tecla==8 OR tecla==12 THEN pagina:=MIN(paginas,pagina+1); END;
+  IF MOUSE(0)>=0 THEN
+   IF MOUSE(1)>=216 AND MOUSE(0)<95 THEN pagina:=MAX(1,pagina-1); END;
+   IF MOUSE(1)>=216 AND MOUSE(0)>225 THEN pagina:=MIN(paginas,pagina+1); END;
+  END;
+  WAIT(0.15);
+ UNTIL tecla==4 OR tecla==19 OR tecla==30;
+END;
+
+QH_LINEAS(texto)
+BEGIN
+ LOCAL salida:={};
  LOCAL resto:=texto;
- LOCAL linea:="";
- LOCAL pos:=0;
- LOCAL y:=55;
- RECT_P(#E8EEF2);
- RECT_P(0,0,319,39,#183B56,#183B56);
- RECT_P(0,40,319,43,#2B7A78,#2B7A78);
- TEXTOUT_P(titulo,10,9,2,#FFFFFF);
+ LOCAL pos,linea;
  REPEAT
   pos:=INSTRING(resto,CHAR(10));
   IF pos==0 THEN
    linea:=resto; resto:="";
   ELSE
-   IF pos==1 THEN linea:=""; ELSE linea:=LEFT(resto,pos-1); END;
+   IF pos==1 THEN linea:=" "; ELSE linea:=LEFT(resto,pos-1); END;
    resto:=MID(resto,pos+1,SIZE(resto)-pos);
   END;
-  TEXTOUT_P(linea,12,y,1,#102A43,296,#E8EEF2);
-  y:=y+19;
- UNTIL SIZE(resto)==0 OR y>202;
- RECT_P(0,216,319,239,#183B56,#183B56);
- TEXTOUT_P("ENTER / ESC PARA VOLVER",65,222,1,#FFFFFF);
- FREEZE;
+  salida:=CONCAT(salida,{linea});
+ UNTIL SIZE(resto)==0;
+ RETURN salida;
 END;
 
 QH_ATOMICA()
