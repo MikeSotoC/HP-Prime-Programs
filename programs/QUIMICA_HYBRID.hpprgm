@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.6.2 - HP Prime G1/G2
+// QUIMICA HYBRID 2.6.3 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -1358,7 +1358,7 @@ BEGIN
  LOCAL y0:=208-h;
  LOCAL color:=#217B9C;
  LOCAL simbolo:="i";
- LOCAL i;
+ LOCAL indiceLinea;
  LOCAL t0;
  LOCAL fin:=0;
  IF tipo==1 THEN color:=#2E7D5B; simbolo:="OK"; END;
@@ -1367,8 +1367,8 @@ BEGIN
  RECT_P(8,y0-2,311,210,color,#FFFFFF);
  RECT_P(8,y0-2,50,210,color,color);
  TEXTOUT_P(simbolo,IFTE(SIZE(simbolo)==2,17,23),y0+IP(h/2)-8,2,#FFFFFF);
- FOR i FROM 1 TO n DO
-  TEXTOUT_P(lineas(i),58,y0+6+(i-1)*16,1,#142837);
+ FOR indiceLinea FROM 1 TO n DO
+  TEXTOUT_P(lineas(indiceLinea),58,y0+6+(indiceLinea-1)*16,1,#142837);
  END;
  TP_LIMPIAR_BUFFER();
  t0:=TICKS;
@@ -1577,12 +1577,12 @@ END;
 QH_AJUSTAR(lineas)
 BEGIN
  LOCAL salida:={};
- LOCAL i;
- FOR i FROM 1 TO SIZE(lineas) DO
-  IF SIZE(lineas(i))>36 THEN
-   salida:=CONCAT(salida,QH_ENVOLVER(lineas(i),36));
+ LOCAL indiceLinea;
+ FOR indiceLinea FROM 1 TO SIZE(lineas) DO
+  IF SIZE(lineas(indiceLinea))>36 THEN
+   salida:=CONCAT(salida,QH_ENVOLVER(lineas(indiceLinea),36));
   ELSE
-   salida:=CONCAT(salida,{lineas(i)});
+   salida:=CONCAT(salida,{lineas(indiceLinea)});
   END;
  END;
  RETURN salida;
@@ -1593,7 +1593,7 @@ BEGIN
  LOCAL lineas:=QH_AJUSTAR(QH_LINEAS(texto));
  LOCAL primero:=1;
  LOCAL maximo:=MAX(1,SIZE(lineas)-7);
- LOCAL i;
+ LOCAL indiceLinea;
  LOCAL y;
  LOCAL tecla:=-1;
  LOCAL mx;
@@ -1608,14 +1608,14 @@ BEGIN
    RECT_P(0,0,319,38,#212728,#212728);
    RECT_P(0,38,319,41,#217B9C,#217B9C);
    TEXTOUT_P(titulo,10,8,2,#FFFFFF);
-   FOR i FROM 0 TO 7 DO
-    IF primero+i<=SIZE(lineas) THEN
-     y:=50+i*20;
-     IF QH_ES_SECCION(lineas(primero+i)) THEN
+   FOR indiceLinea FROM 0 TO 7 DO
+    IF primero+indiceLinea<=SIZE(lineas) THEN
+     y:=50+indiceLinea*20;
+     IF QH_ES_SECCION(lineas(primero+indiceLinea)) THEN
       RECT_P(4,y-3,300,y+14,#CFE3EC,#CFE3EC);
-      TEXTOUT_P(lineas(primero+i),10,y,1,#175E78,290,#CFE3EC);
+      TEXTOUT_P(lineas(primero+indiceLinea),10,y,1,#175E78,290,#CFE3EC);
      ELSE
-      TEXTOUT_P(lineas(primero+i),14,y,1,#142837,286,#E2E7E8);
+      TEXTOUT_P(lineas(primero+indiceLinea),14,y,1,#142837,286,#E2E7E8);
      END;
     END;
    END;
