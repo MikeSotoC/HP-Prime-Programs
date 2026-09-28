@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.4.5 - HP Prime G1/G2
+// QUIMICA HYBRID 2.5.0 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -694,7 +694,7 @@ EXPORT QUIMICA_HYBRID()
 BEGIN
  LOCAL u:=1;
  REPEAT
-  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA","FUNCIONES Y NOMENCLATURA","BALANCEO DE ECUACIONES","CONFIGURACION DE CONSTANTES");
+  u:=QH_MENU("QUIMICA HYBRID","QUIMICA GENERAL",{"UNIDAD 1  ESTRUCTURA ATOMICA","UNIDAD 2  TABLA PERIODICA","FUNCIONES Y NOMENCLATURA","BALANCEO DE ECUACIONES","CONFIGURACION DE CONSTANTES"});
   IF u==1 THEN QH_ATOMICA(); END;
   IF u==2 THEN QH_UNIDAD2(); END;
   IF u==3 THEN QH_NOMENCLATURA(); END;
@@ -703,11 +703,120 @@ BEGIN
  UNTIL u==0;
 END;
 
+QH_MENU(titulo,subtitulo,opciones)
+BEGIN
+ LOCAL total:=SIZE(opciones);
+ LOCAL porPagina:=4;
+ LOCAL primera:=1;
+ LOCAL primeraAnterior:=1;
+ LOCAL seleccionado:=1;
+ LOCAL anterior:=1;
+ LOCAL tecla:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ LOCAL toqueActivo:=0;
+ LOCAL indice;
+ LOCAL inicioY:=48;
+ LOCAL alto:=35;
+ LOCAL espacio:=6;
+ LOCAL posY;
+ IF total==1 THEN inicioY:=82; alto:=56; END;
+ IF total==2 THEN inicioY:=67; alto:=56; espacio:=14; END;
+ IF total==3 THEN inicioY:=52; alto:=43; espacio:=9; END;
+ QH_MENU_FONDO(titulo,subtitulo);
+ QH_MENU_LISTA(opciones,seleccionado,primera,inicioY,alto,espacio);
+ QH_MENU_PIE("VOLVER",IFTE(total>4,"1/"+STRING(total),"FLECHAS"),"ABRIR");
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  tecla:=GETKEY;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX<0 THEN toqueActivo:=0; END;
+  anterior:=seleccionado;
+  primeraAnterior:=primera;
+  IF tecla==2 OR tecla==7 THEN seleccionado:=MAX(1,seleccionado-1); END;
+  IF tecla==12 OR tecla==8 THEN seleccionado:=MIN(total,seleccionado+1); END;
+  IF seleccionado<primera THEN primera:=seleccionado; END;
+  IF seleccionado>primera+porPagina-1 THEN primera:=seleccionado-porPagina+1; END;
+  IF anterior<>seleccionado THEN
+   IF primera<>primeraAnterior THEN
+    QH_MENU_LISTA(opciones,seleccionado,primera,inicioY,alto,espacio);
+    QH_MENU_PIE("VOLVER",STRING(seleccionado)+"/"+STRING(total),"ABRIR");
+   ELSE
+    QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio);
+    QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio);
+   END;
+  END;
+  IF tecla==30 THEN RETURN seleccionado; END;
+  IF tecla==4 OR tecla==19 THEN RETURN 0; END;
+  IF toqueX>=0 AND toqueActivo==0 THEN
+   toqueActivo:=1;
+   IF toqueY>=216 AND toqueX<=104 THEN RETURN 0; END;
+   IF toqueY>=216 AND toqueX>=211 THEN RETURN seleccionado; END;
+   FOR indice FROM primera TO MIN(total,primera+porPagina-1) DO
+    posY:=inicioY+(indice-primera)*(alto+espacio);
+    IF toqueY>=posY AND toqueY<=posY+alto THEN
+     IF seleccionado==indice THEN RETURN indice; END;
+     anterior:=seleccionado;
+     seleccionado:=indice;
+     QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio);
+     QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio);
+    END;
+   END;
+  END;
+  WAIT(0.04);
+ UNTIL 0;
+END;
+
+QH_MENU_FONDO(titulo,subtitulo)
+BEGIN
+ RECT_P(#E2E7E8);
+ RECT_P(0,0,319,38,#212728,#212728);
+ RECT_P(0,38,319,41,#217B9C,#217B9C);
+ TEXTOUT_P(titulo,12,8,2,#FFFFFF);
+ TEXTOUT_P(subtitulo,13,26,0,#E8F2F8);
+END;
+
+QH_MENU_LISTA(opciones,seleccionado,primera,inicioY,alto,espacio)
+BEGIN
+ LOCAL indice;
+ LOCAL ultimo:=MIN(SIZE(opciones),primera+3);
+ RECT_P(0,42,319,214,#E2E7E8,#E2E7E8);
+ FOR indice FROM primera TO ultimo DO
+  QH_MENU_TARJETA(indice,opciones(indice),indice==seleccionado,indice-primera+1,inicioY,alto,espacio);
+ END;
+END;
+
+QH_MENU_TARJETA(indice,texto,marcada,fila,inicioY,alto,espacio)
+BEGIN
+ LOCAL posY:=inicioY+(fila-1)*(alto+espacio);
+ LOCAL fondo:=#FFFFFF;
+ LOCAL tinta:=#25364A;
+ RECT_P(10,posY-2,309,posY+alto+2,#E2E7E8,#E2E7E8);
+ IF marcada THEN fondo:=#217B9C; tinta:=#FFFFFF; END;
+ RECT_P(14,posY,305,posY+alto,fondo,fondo);
+ RECT_P(14,posY,305,posY+alto,IFTE(marcada,#142837,#BECAD4));
+ RECT_P(23,posY+7,48,posY+alto-7,IFTE(marcada,#252C2E,#217B9C),IFTE(marcada,#252C2E,#217B9C));
+ TEXTOUT_P(STRING(indice),32,posY+alto/2-6,1,#FFFFFF);
+ TEXTOUT_P(texto,60,posY+alto/2-6,1,tinta,220,fondo);
+ IF marcada THEN TEXTOUT_P(">",288,posY+alto/2-6,2,#FFFFFF); END;
+END;
+
+QH_MENU_PIE(izquierda,centro,derecha)
+BEGIN
+ RECT_P(0,216,104,239,#252C2E,#252C2E);
+ RECT_P(106,216,209,239,#394345,#394345);
+ RECT_P(211,216,319,239,#217B9C,#217B9C);
+ TEXTOUT_P("< "+izquierda,13,222,1,#FFFFFF);
+ TEXTOUT_P(centro,127,222,1,#FFFFFF);
+ TEXTOUT_P(derecha,237,222,1,#FFFFFF);
+END;
+
 QH_CONFIG()
 BEGIN
  LOCAL op:=1;
  REPEAT
-  CHOOSE(op,"CONSTANTES FISICAS","VER PERFIL ACTIVO","USAR VALORES ACADEMICOS","USAR VALORES EXACTOS");
+  op:=QH_MENU("CONSTANTES FISICAS","PERFILES DISPONIBLES",{"VER PERFIL ACTIVO","USAR VALORES ACADEMICOS","USAR VALORES EXACTOS"});
   IF op==1 THEN
    QH_RESULT("CONSTANTES ACTIVAS","Perfil: "+IFTE(CFG_PROFILE==1,"ACADEMICO (HPP)","EXACTO / ALTA PRECISION")+CHAR(10)+CHAR(10)+"h = "+STRING(CFG_H)+" J·s"+CHAR(10)+"c = "+STRING(CFG_C)+" m·s⁻¹"+CHAR(10)+"1 eV = "+STRING(CFG_EV)+" J"+CHAR(10)+"1 J = "+STRING(CFG_ERG)+" erg"+CHAR(10)+"a₀ = "+STRING(CFG_A0)+" Å"+CHAR(10)+"v₀ = "+STRING(CFG_V0)+" cm·s⁻¹"+CHAR(10)+"R = "+STRING(CFG_RY)+" eV");
   END;
@@ -729,7 +838,7 @@ BEGIN
  opcionRedox:=1;
  sustanciaRedox:="";
  REPEAT
-  CHOOSE(opcionRedox,"EDITOR DE ECUACION","AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO");
+  opcionRedox:=QH_MENU("EDITOR DE ECUACION","BALANCEO Y EXPLICACION",{"AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO"});
   IF opcionRedox==1 THEN
    sustanciaRedox:=QH_ESPECIE();
    IF SIZE(sustanciaRedox)>0 THEN QREACT:=QREACT+IFTE(SIZE(QREACT)>0,"|","")+sustanciaRedox; QRSHOW:=QRSHOW+IFTE(SIZE(QRSHOW)>0," + ","")+QLASTSHOW; END;
@@ -778,7 +887,7 @@ BEGIN
  parteGrupo:="";
  listaSimbolos:=TP_SIMBOLOS();
  REPEAT
-  CHOOSE(opcionEspecie,"CONSTRUIR SUSTANCIA","AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA");
+  opcionEspecie:=QH_MENU("CONSTRUIR SUSTANCIA","ELEMENTOS, GRUPOS Y CARGA",{"AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA"});
   IF opcionEspecie==1 THEN
    numeroAtomico:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
    IF numeroAtomico>0 THEN
@@ -823,7 +932,7 @@ BEGIN
  LOCAL v1:=2;
  LOCAL v2:=-2;
  REPEAT
-  CHOOSE(modo,"FORMULAR, INTERPRETAR Y NOMBRAR","COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES","CATALOGO DE ANIONES -URO");
+  modo:=QH_MENU("NOMENCLATURA","FORMULAR, INTERPRETAR Y NOMBRAR",{"COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES","CATALOGO DE ANIONES -URO"});
   IF modo==1 THEN
    z1:=TP_SELECCIONAR("PRIMER ELEMENTO");
    IF z1>0 THEN
@@ -875,40 +984,40 @@ BEGIN
  LOCAL seleccion;
  LOCAL indices;
  familia:=1;
- CHOOSE(familia,"FAMILIA DEL RADICAL","COMUNES","OXOANIONES DE CLORO","OXOANIONES DE BROMO Y YODO","TRANSICION Y CROMATOS","BORO, SILICIO, P, As, Se, Te","SALES ACIDAS","ESPECIALES INORGANICOS","ORGANICOS E HIDRONIO");
+ familia:=QH_MENU("FAMILIA DEL RADICAL","SELECCIONE UNA FAMILIA",{"COMUNES","OXOANIONES DE CLORO","OXOANIONES DE BROMO Y YODO","TRANSICION Y CROMATOS","BORO, SILICIO, P, As, Se, Te","SALES ACIDAS","ESPECIALES INORGANICOS","ORGANICOS E HIDRONIO"});
  IF familia==0 THEN RETURN 0; END;
  seleccion:=1;
  IF familia==1 THEN
   indices:={1,2,3,4,5,6,7,15,16};
-  CHOOSE(seleccion,"RADICALES COMUNES","OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","CN(-1) CIANURO","NH4(+1) AMONIO");
+  seleccion:=QH_MENU("RADICALES COMUNES","FORMULA, CARGA Y NOMBRE",{"OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","CN(-1) CIANURO","NH4(+1) AMONIO"});
  END;
  IF familia==2 THEN
   indices:={8,9,10,11};
-  CHOOSE(seleccion,"OXOANIONES DE CLORO","ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO");
+  seleccion:=QH_MENU("OXOANIONES DE CLORO","FORMULA, CARGA Y NOMBRE",{"ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO"});
  END;
  IF familia==3 THEN
   indices:={17,18,19,20,21,22,23,24};
-  CHOOSE(seleccion,"BROMO Y YODO","BrO(-1) HIPOBROMITO","BrO2(-1) BROMITO","BrO3(-1) BROMATO","BrO4(-1) PERBROMATO","IO(-1) HIPOYODITO","IO2(-1) YODITO","IO3(-1) YODATO","IO4(-1) PERYODATO");
+  seleccion:=QH_MENU("BROMO Y YODO","FORMULA, CARGA Y NOMBRE",{"BrO(-1) HIPOBROMITO","BrO2(-1) BROMITO","BrO3(-1) BROMATO","BrO4(-1) PERBROMATO","IO(-1) HIPOYODITO","IO2(-1) YODITO","IO3(-1) YODATO","IO4(-1) PERYODATO"});
  END;
  IF familia==4 THEN
   indices:={12,13,14,31,48,49,50,51,52};
-  CHOOSE(seleccion,"TRANSICION Y CROMATOS","MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","MnO4(-2) MANGANATO","MoO4(-2) MOLIBDATO","WO4(-2) WOLFRAMATO","VO3(-1) METAVANADATO","VO4(-3) ORTOVANADATO","AlO2(-1) ALUMINATO");
+  seleccion:=QH_MENU("TRANSICION Y CROMATOS","FORMULA, CARGA Y NOMBRE",{"MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","MnO4(-2) MANGANATO","MoO4(-2) MOLIBDATO","WO4(-2) WOLFRAMATO","VO3(-1) METAVANADATO","VO4(-3) ORTOVANADATO","AlO2(-1) ALUMINATO"});
  END;
  IF familia==5 THEN
   indices:={25,26,27,28,29,30,37,46,47};
-  CHOOSE(seleccion,"OTROS OXOANIONES","BO3(-3) BORATO","SiO3(-2) SILICATO","AsO3(-3) ARSENITO","AsO4(-3) ARSENATO","SeO3(-2) SELENITO","SeO4(-2) SELENATO","PO3(-3) FOSFITO","TeO3(-2) TELURITO","TeO4(-2) TELURATO");
+  seleccion:=QH_MENU("OTROS OXOANIONES","FORMULA, CARGA Y NOMBRE",{"BO3(-3) BORATO","SiO3(-2) SILICATO","AsO3(-3) ARSENITO","AsO4(-3) ARSENATO","SeO3(-2) SELENITO","SeO4(-2) SELENATO","PO3(-3) FOSFITO","TeO3(-2) TELURITO","TeO4(-2) TELURATO"});
  END;
  IF familia==6 THEN
   indices:={35,36,38,39,40};
-  CHOOSE(seleccion,"SALES ACIDAS","HCO3(-1) BICARBONATO","HSO4(-1) BISULFATO","HPO4(-2) HIDROGENOFOSFATO","H2PO4(-1) DIHIDROGENOFOSFATO","HSO3(-1) BISULFITO");
+  seleccion:=QH_MENU("SALES ACIDAS","FORMULA, CARGA Y NOMBRE",{"HCO3(-1) BICARBONATO","HSO4(-1) BISULFATO","HPO4(-2) HIDROGENOFOSFATO","H2PO4(-1) DIHIDROGENOFOSFATO","HSO3(-1) BISULFITO"});
  END;
  IF familia==7 THEN
   indices:={32,33,41,42,43,44,45};
-  CHOOSE(seleccion,"ESPECIALES INORGANICOS","S2O3(-2) TIOSULFATO","C2O4(-2) OXALATO","OCN(-1) CIANATO","SCN(-1) TIOCIANATO","O2(-2) PEROXIDO","O2(-1) SUPEROXIDO","S2O8(-2) PERSULFATO");
+  seleccion:=QH_MENU("ESPECIALES INORGANICOS","FORMULA, CARGA Y NOMBRE",{"S2O3(-2) TIOSULFATO","C2O4(-2) OXALATO","OCN(-1) CIANATO","SCN(-1) TIOCIANATO","O2(-2) PEROXIDO","O2(-1) SUPEROXIDO","S2O8(-2) PERSULFATO"});
  END;
  IF familia==8 THEN
   indices:={34,53,54,55};
-  CHOOSE(seleccion,"ORGANICOS E HIDRONIO","CH3COO(-1) ACETATO","H3O(+1) HIDRONIO","HCOO(-1) FORMIATO","C6H5O7(-3) CITRATO");
+  seleccion:=QH_MENU("ORGANICOS E HIDRONIO","FORMULA, CARGA Y NOMBRE",{"CH3COO(-1) ACETATO","H3O(+1) HIDRONIO","HCOO(-1) FORMIATO","C6H5O7(-3) CITRATO"});
  END;
  IF seleccion==0 THEN RETURN 0; END;
  RETURN indices(seleccion);
@@ -1006,7 +1115,7 @@ BEGIN
  LOCAL o:=1;
  LOCAL z:=17;
  REPEAT
-  CHOOSE(o,"TABLA PERIODICA","TABLA INTERACTIVA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO");
+  o:=QH_MENU("TABLA PERIODICA","ELEMENTOS Y CONFIGURACION",{"TABLA INTERACTIVA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO"});
   IF o==1 THEN
    TP_TABLA();
   END;
@@ -1056,23 +1165,42 @@ BEGIN
  LOCAL redibujar:=1;
  REPEAT
   IF redibujar THEN
-   RECT_P(#E8EEF2); RECT_P(0,0,319,39,#183B56,#183B56); RECT_P(0,40,319,43,#2B7A78,#2B7A78);
+   RECT_P(#E2E7E8);
+   RECT_P(0,0,319,38,#212728,#212728);
+   RECT_P(0,38,319,41,#217B9C,#217B9C);
    TEXTOUT_P(titulo,10,8,2,#FFFFFF);
    FOR i FROM 0 TO 7 DO
     IF primero+i<=SIZE(lineas) THEN
      y:=50+i*20;
-     IF INSTRING(lineas(primero+i),"1. ")==1 OR INSTRING(lineas(primero+i),"2. ")==1 OR INSTRING(lineas(primero+i),"3. ")==1 OR INSTRING(lineas(primero+i),"4. ")==1 OR INSTRING(lineas(primero+i),"5. ")==1 OR INSTRING(lineas(primero+i),"6. ")==1 THEN TEXTOUT_P(lineas(primero+i),8,y,1,#0B5566,294,#E8EEF2); ELSE TEXTOUT_P(lineas(primero+i),8,y,1,#102A43,294,#E8EEF2); END;
+     IF QH_ES_SECCION(lineas(primero+i)) THEN
+      TEXTOUT_P(lineas(primero+i),8,y,1,#217B9C,294,#E2E7E8);
+     ELSE
+      TEXTOUT_P(lineas(primero+i),8,y,1,#142837,294,#E2E7E8);
+     END;
     END;
    END;
-   RECT_P(306,45,318,211,#D2DCE2,#D2DCE2);
-   y:=45+IP((primero-1)*146/MAX(1,maximo-1)); RECT_P(308,y,316,MIN(211,y+20),#2B7A78,#2B7A78);
-   RECT_P(0,216,319,239,#183B56,#183B56); TEXTOUT_P("ARRASTRE PARA DESPLAZAR  |  ENTER SALIR",16,222,1,#FFFFFF);
+   RECT_P(306,45,318,211,#D3DADB,#D3DADB);
+   y:=45+IP((primero-1)*146/MAX(1,maximo-1));
+   RECT_P(308,y,316,MIN(211,y+20),#217B9C,#217B9C);
+   RECT_P(0,216,79,239,#252C2E,#252C2E);
+   RECT_P(81,216,160,239,#394345,#394345);
+   RECT_P(162,216,205,239,#D3DADB,#D3DADB);
+   RECT_P(207,216,319,239,#217B9C,#217B9C);
+   TEXTOUT_P("SUBIR",17,222,1,#FFFFFF);
+   TEXTOUT_P("BAJAR",96,222,1,#FFFFFF);
+   TEXTOUT_P(STRING(primero)+"/"+STRING(maximo),166,222,0,#586668);
+   TEXTOUT_P("VOLVER",235,222,1,#FFFFFF);
    redibujar:=0;
   END;
   tecla:=GETKEY; mx:=MOUSE(0); my:=MOUSE(1);
   nuevo:=primero;
   IF tecla==2 OR tecla==7 THEN nuevo:=MAX(1,primero-1); END;
   IF tecla==12 OR tecla==8 THEN nuevo:=MIN(maximo,primero+1); END;
+  IF mx>=0 AND my>=216 THEN
+   IF mx<=79 THEN nuevo:=MAX(1,primero-1); END;
+   IF mx>=81 AND mx<=160 THEN nuevo:=MIN(maximo,primero+1); END;
+   IF mx>=207 THEN tecla:=4; END;
+  END;
   IF mx>=0 AND my<214 THEN
    IF tocando==0 THEN tocando:=1; ultimoY:=my; ELSE
     IF ABS(my-ultimoY)>=12 THEN nuevo:=MAX(1,MIN(maximo,primero+IFTE(my<ultimoY,1,-1))); ultimoY:=my; END;
@@ -1081,6 +1209,17 @@ BEGIN
   IF nuevo<>primero THEN primero:=nuevo; redibujar:=1; END;
   WAIT(0.03);
  UNTIL tecla==4 OR tecla==19 OR tecla==30;
+END;
+
+QH_ES_SECCION(linea)
+BEGIN
+ IF INSTRING(linea,"1. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"2. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"3. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"4. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"5. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"6. ")==1 THEN RETURN 1; END;
+ RETURN 0;
 END;
 
 QH_LINEAS(texto)
@@ -1109,7 +1248,7 @@ BEGIN
  LOCAL b:=-1;
  LOCAL c:=0;
  REPEAT
-  CHOOSE(o,"ESTRUCTURA ATOMICA","PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA");
+  o:=QH_MENU("ESTRUCTURA ATOMICA","PLANCK, BOHR, EINSTEIN Y ATOMO",{"PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA"});
   IF o>=1 AND o<=3 THEN
    a:=1; IF INPUT(a,"PLANCK","Dato conocido") THEN QH_EJECUTAR(100+o,a,0,0,0,"PLANCK"); END;
   END;
