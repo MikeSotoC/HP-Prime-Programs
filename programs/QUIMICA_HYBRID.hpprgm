@@ -13,6 +13,14 @@ QOUT2:=0;
 QOUT3:=0;
 QTEXT:="";
 QERR:=0;
+QZ1:=0;
+QZ2:=0;
+QV1:=0;
+QV2:=0;
+QSUB1:=1;
+QSUB2:=1;
+QSYM1:="";
+QSYM2:="";
 
 #PYTHON CHEM_ENGINE
 import hpprime as hp
@@ -133,6 +141,79 @@ def electron_config(z):
     if not (57<=z<=71 or 89<=z<=103): block=last_l
     return SYMBOLS[int(z)-1],cfg,period,group,valence,family,block
 
+def gcd(a,b):
+    a=abs(int(a)); b=abs(int(b))
+    while b: a,b=b,a%b
+    return a or 1
+
+def roman(n):
+    vals=((10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I'))
+    out=''
+    for v,s in vals:
+        while n>=v: out+=s; n-=v
+    return out
+
+def prefix(n):
+    p=('','mono','di','tri','tetra','penta','hexa','hepta','octa','nona','deca')
+    return p[n] if n<len(p) else str(n)
+
+def traditional(sym,val,kind):
+    roots={'Fe':('ferr','oso','ico',2,3),'Cu':('cupr','oso','ico',1,2),
+           'Hg':('mercur','oso','ico',1,2),'Sn':('estan','oso','ico',2,4),
+           'Pb':('plumb','oso','ico',2,4),'Au':('aur','oso','ico',1,3),
+           'Co':('cobalt','oso','ico',2,3),'Ni':('niquel','oso','ico',2,3)}
+    if sym not in roots: return ''
+    root,lo,hi,vlo,vhi=roots[sym]
+    suf=lo if val==vlo else hi if val==vhi else ''
+    if not suf: return ''
+    if kind=='oxido': return 'oxido '+root+suf
+    if kind=='hidruro': return 'hidruro '+root+suf
+    return root+suf
+
+def formulate(z1,z2,v1,v2):
+    z1=int(z1); z2=int(z2); v1=int(v1); v2=int(v2)
+    if z1<1 or z1>118 or z2<1 or z2>118 or z1==z2:
+        raise ValueError('Seleccione dos elementos diferentes.')
+    if v1==0 or v2==0 or v1*v2>0:
+        raise ValueError('Las valencias deben tener signos opuestos.')
+    g=gcd(v1,v2); n1=abs(v2)//g; n2=abs(v1)//g
+    s1=SYMBOLS[z1-1]; s2=SYMBOLS[z2-1]
+    names=hp.eval('TP_NOMBRES()')
+    name1=str(names[z1-1]); name2=str(names[z2-1])
+    formula=s1+('' if n1==1 else str(n1))+s2+('' if n2==1 else str(n2))
+    if s2=='O' and v2==-2:
+        kind='oxido'
+        stock='oxido de '+name1+' ('+roman(abs(v1))+')'
+        systematic=(prefix(n2)+'oxido de '+prefix(n1)+name1.lower()).replace('monooxido','monoxido')
+    elif s2=='H' and v2==-1:
+        kind='hidruro'
+        stock='hidruro de '+name1+' ('+roman(abs(v1))+')'
+        systematic=prefix(n2)+'hidruro de '+prefix(n1)+name1.lower()
+    else:
+        kind='binario'
+        endings={'F':'fluoruro','Cl':'cloruro','Br':'bromuro','I':'yoduro',
+                 'S':'sulfuro','Se':'seleniuro','Te':'telururo','N':'nitruro',
+                 'P':'fosfuro','C':'carburo','Si':'siliciuro','B':'boruro'}
+        anion=endings.get(s2,name2.lower()+'uro')
+        stock=anion+' de '+name1+' ('+roman(abs(v1))+')'
+        systematic=prefix(n2)+anion+' de '+prefix(n1)+name1.lower()
+    trad=traditional(s1,abs(v1),kind)
+    if not trad: trad='No definida para esta combinacion en el nivel tradicional.'
+    sv('QSUB1',n1); sv('QSUB2',n2); sv('QV1',v1); sv('QV2',v2)
+    st_var('QSYM1',s1); st_var('QSYM2',s2)
+    check=str(n1)+'('+str(v1)+') + '+str(n2)+'('+str(v2)+') = 0'
+    text=('1. ELEMENTOS\n'+s1+' = '+name1+', oxidacion '+str(v1)+'\n'+
+          s2+' = '+name2+', oxidacion '+str(v2)+'\n\n2. CRUCE DE VALENCIAS\n'
+          +str(abs(v1))+' y '+str(abs(v2))+' se simplifican por '+str(g)+'\n'
+          +'Subindices: '+str(n1)+' y '+str(n2)+'\n\n3. FORMULA\n'+formula+
+          '\n\n4. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+
+          '\nTradicional: '+trad+'\n\n5. COMPROBACION\n'+check)
+    return text
+
+def st_var(name,text):
+    text=str(text).replace('\\','\\\\').replace('"','\\"')
+    hp.eval(name+':="'+text+'"')
+
 try:
     op=int(gv('QOP')); a=float(gv('QA')); b=float(gv('QB'))
     c=float(gv('QC')); d=float(gv('QD'))
@@ -201,6 +282,9 @@ try:
               '4. ANALISIS\nGrupo = '+str(group)+'\nPeriodo = '+str(period)+
               '\nElectrones de valencia = '+str(valence)+'\nFamilia = '+family+'\nBloque = '+block)
         ok(a,period,group,text)
+    elif op==1001:
+        text=formulate(gv('QZ1'),gv('QZ2'),gv('QV1'),gv('QV2'))
+        ok(gv('QSUB1'),gv('QSUB2'),0,text)
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -210,10 +294,71 @@ EXPORT QUIMICA_HYBRID()
 BEGIN
  LOCAL u:=1;
  REPEAT
-  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA");
+  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA","FUNCIONES Y NOMENCLATURA");
   IF u==1 THEN QH_ATOMICA(); END;
   IF u==2 THEN QH_UNIDAD2(); END;
+  IF u==3 THEN QH_NOMENCLATURA(); END;
  UNTIL u==0;
+END;
+
+QH_NOMENCLATURA()
+BEGIN
+ LOCAL modo:=1;
+ LOCAL z1,z2,v1:=2,v2:=-2;
+ REPEAT
+  CHOOSE(modo,"FORMULAR Y NOMBRAR","ELEGIR EN TABLA","RADICALES");
+  IF modo==1 THEN
+   z1:=TP_SELECCIONAR("PRIMER ELEMENTO");
+   IF z1>0 THEN
+    z2:=TP_SELECCIONAR("SEGUNDO ELEMENTO");
+    IF z2>0 THEN
+     IF INPUT({v1,v2},"NUMEROS DE OXIDACION",{"Primer elemento:","Segundo elemento:"},{"Use + para el positivo","Use - para el negativo"},{2,-2}) THEN
+      QZ1:=z1; QZ2:=z2; QV1:=v1; QV2:=v2;
+      QH_RUN_NOM();
+     END;
+    END;
+   END;
+  END;
+  IF modo==2 THEN QH_RADICALES(); END;
+ UNTIL modo==0;
+END;
+
+QH_RUN_NOM()
+BEGIN
+ QOP:=1001; QERR:=0; QTEXT:=""; QSYM1:=""; QSYM2:="";
+ PYTHON(CHEM_ENGINE);
+ IF QERR THEN
+  MSGBOX(QTEXT);
+ ELSE
+  QH_DIBUJAR_FORMULA(QSYM1,QSUB1,QV1,QSYM2,QSUB2,QV2);
+  QH_RESULT("NOMENCLATURA",QTEXT);
+ END;
+END;
+
+QH_RADICALES()
+BEGIN
+ LOCAL r:=1;
+ CHOOSE(r,"RADICALES","OH-  HIDROXIDO","NO3-  NITRATO","SO4(2-)  SULFATO","CO3(2-)  CARBONATO","PO4(3-)  FOSFATO","NH4+  AMONIO");
+ IF r>0 THEN MSGBOX("Radical conservado para una ampliacion posterior. La formulacion actual usa dos elementos de la tabla."); END;
+END;
+
+QH_DIBUJAR_FORMULA(s1,n1,v1,s2,n2,v2)
+BEGIN
+ LOCAL x:=72;
+ LOCAL ancho1:=IFTE(SIZE(s1)==1,28,47);
+ LOCAL ancho2:=IFTE(SIZE(s2)==1,28,47);
+ RECT_P(#FFFFFF);
+ TEXTOUT_P("FORMULA GENERADA",78,18,2,#183B56);
+ TEXTOUT_P(IFTE(v1>0,"+"+STRING(v1),STRING(v1)),x+4,67,1,#B3261E);
+ TEXTOUT_P(s1,x,91,4,#111111);
+ IF n1>1 THEN TEXTOUT_P(STRING(n1),x+ancho1-4,126,2,#111111); END;
+ x:=x+ancho1+IFTE(n1>1,12,2);
+ TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+4,67,1,#B3261E);
+ TEXTOUT_P(s2,x,91,4,#111111);
+ IF n2>1 THEN TEXTOUT_P(STRING(n2),x+ancho2-4,126,2,#111111); END;
+ RECT_P(0,216,319,239,#183B56,#183B56);
+ TEXTOUT_P("ENTER PARA VER SOLUCION",65,222,1,#FFFFFF);
+ FREEZE;
 END;
 
 QH_UNIDAD2()
@@ -465,6 +610,47 @@ BEGIN
  IF familia=="Alcalinoterreo" THEN RETURN RGB(230,150,60); END;
  IF familia=="Metal de transicion" THEN RETURN RGB(70,130,190); END;
  RETURN RGB(150,160,170);
+END;
+
+TP_SELECCIONAR(titulo)
+BEGIN
+ LOCAL simbolos:=TP_SIMBOLOS();
+ LOCAL nombres:=TP_NOMBRES();
+ LOCAL grupos:=TP_GRUPOS();
+ LOCAL periodos:=TP_PERIODOS();
+ LOCAL sel:=1,nuevo:=1,k:=-1,x:=-1,y:=-1,z,pos,cx,cy;
+ TP_DIBUJAR_TABLA(sel,simbolos,nombres,grupos,periodos);
+ RECT_P(0,0,319,22,#212728,#212728);
+ TEXTOUT_P(titulo+": "+simbolos(sel),5,4,1,#FFFFFF);
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  k:=GETKEY; x:=MOUSE(0); y:=MOUSE(1); nuevo:=sel;
+  IF k==7 THEN nuevo:=TP_MOVER(sel,7,grupos,periodos); END;
+  IF k==8 THEN nuevo:=TP_MOVER(sel,8,grupos,periodos); END;
+  IF k==2 THEN nuevo:=TP_MOVER(sel,2,grupos,periodos); END;
+  IF k==12 THEN nuevo:=TP_MOVER(sel,12,grupos,periodos); END;
+  IF k==30 THEN RETURN sel; END;
+  IF k==4 OR k==19 THEN RETURN 0; END;
+  IF x>=0 AND y>=216 THEN
+   IF x<=104 THEN RETURN 0; END;
+   IF x>=211 THEN RETURN sel; END;
+  END;
+  IF x>=0 AND y>=25 AND y<=205 THEN
+   FOR z FROM 1 TO 118 DO
+    pos:=TP_POS(z,grupos,periodos);
+    cx:=2+(pos(1)-1)*17; cy:=25+(pos(2)-1)*20;
+    IF x>=cx AND x<=cx+15 AND y>=cy AND y<=cy+17 THEN nuevo:=z; END;
+   END;
+  END;
+  IF nuevo<>sel THEN
+   TP_DIBUJAR_CELDA(sel,0,simbolos,grupos,periodos);
+   sel:=nuevo;
+   TP_DIBUJAR_CELDA(sel,1,simbolos,grupos,periodos);
+   RECT_P(0,0,319,22,#212728,#212728);
+   TEXTOUT_P(titulo+": "+simbolos(sel)+" "+nombres(sel),5,4,1,#FFFFFF);
+  END;
+  WAIT(0.05);
+ UNTIL 0;
 END;
 
 EXPORT TP_TABLA()
