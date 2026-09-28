@@ -1,46 +1,3 @@
-// QUIMICA HYBRID 2.7.1 - HP Prime G1/G2
-// Interfaz: HP PPL | Motor: MicroPython
-// Alcance limitado a las Unidades 1 y 2 del programa de referencia.
-// Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
-
-QOP:=0;
-QA:=0;
-QB:=0;
-QC:=0;
-QD:=0;
-QOUT1:=0;
-QOUT2:=0;
-QOUT3:=0;
-QTEXT:="";
-QERR:=0;
-QZ1:=0;
-QZ2:=0;
-QV1:=0;
-QV2:=0;
-QSUB1:=1;
-QSUB2:=1;
-QSYM1:="";
-QSYM2:="";
-QRID:=0;
-QMODE:=0;
-QFORM:="";
-QGROUP:="";
-QREV:=0;
-QRXN:="";
-QREACT:="";
-QPROD:="";
-QRSHOW:="";
-QPSHOW:="";
-QLASTSHOW:="";
-CFG_PROFILE:=1;
-CFG_H:=6.63E-34;
-CFG_C:=3E8;
-CFG_EV:=1.6E-19;
-CFG_ERG:=1E7;
-CFG_A0:=0.529;
-CFG_V0:=2.18E8;
-CFG_RY:=13.6;
-
 #PYTHON CHEM_ENGINE
 import hpprime as hp
 
@@ -706,6 +663,48 @@ try:
 except Exception as ex:
     fail('Error: '+str(ex))
 #END
+
+// QUIMICA HYBRID 2.8.0 - HP Prime G1/G2
+// Interfaz: HP PPL | Motor: MicroPython
+// Formato hibrido: Python primero, PPL despues de #END.
+
+QOP:=0;
+QA:=0;
+QB:=0;
+QC:=0;
+QD:=0;
+QOUT1:=0;
+QOUT2:=0;
+QOUT3:=0;
+QTEXT:="";
+QERR:=0;
+QZ1:=0;
+QZ2:=0;
+QV1:=0;
+QV2:=0;
+QSUB1:=1;
+QSUB2:=1;
+QSYM1:="";
+QSYM2:="";
+QRID:=0;
+QMODE:=0;
+QFORM:="";
+QGROUP:="";
+QREV:=0;
+QRXN:="";
+QREACT:="";
+QPROD:="";
+QRSHOW:="";
+QPSHOW:="";
+QLASTSHOW:="";
+CFG_PROFILE:=1;
+CFG_H:=6.63E-34;
+CFG_C:=3E8;
+CFG_EV:=1.6E-19;
+CFG_ERG:=1E7;
+CFG_A0:=0.529;
+CFG_V0:=2.18E8;
+CFG_RY:=13.6;
 
 EXPORT QUIMICA_HYBRID()
 BEGIN
