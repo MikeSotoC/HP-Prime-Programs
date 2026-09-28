@@ -1,5 +1,6 @@
-// QUIMICA HYBRID 1.0 - HP Prime G1/G2
+// QUIMICA HYBRID 1.1 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
+// Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
 
 QOP:=0;
@@ -14,14 +15,11 @@ QTEXT:="";
 QERR:=0;
 
 #PYTHON CHEM_ENGINE
-import math
 import hpprime as hp
 
 H=6.62607015e-34
 C=299792458.0
 EV=1.602176634e-19
-NA=6.02214076e23
-R=0.082057366
 SYMBOLS=('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr '
          'Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu '
          'Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr '
@@ -118,51 +116,6 @@ def electron_config(z):
     period=max(x[0] for x in filled if x[2])
     return SYMBOLS[int(z)-1],cfg,period
 
-def mole(op,a,b):
-    if a<=0: raise ValueError('El valor debe ser mayor que cero.')
-    if op==501:
-        if b<=0: raise ValueError('La masa molar debe ser positiva.')
-        mol=a/b
-    elif op==502: mol=a/NA
-    else: mol=a
-    return mol,mol*NA,mol*b if b>0 else 0
-
-def gas(op,p,v,n,t):
-    vals=[p,v,n,t]
-    if sum(1 for x in vals if x<0)!=1:
-        raise ValueError('Deje exactamente una incognita en -1.')
-    if op!=601: raise ValueError('Operacion desconocida.')
-    if p<0: p=n*R*t/v
-    elif v<0: v=n*R*t/p
-    elif n<0: n=p*v/(R*t)
-    else: t=p*v/(n*R)
-    if min(p,v,n,t)<=0: raise ValueError('Los datos conocidos deben ser positivos.')
-    return p,v,n,t
-
-def solution(op,a,b,c):
-    if op==701:
-        if a<0 or b<=0: raise ValueError('Compruebe moles y volumen.')
-        return a/b,0,0
-    if op==702:
-        if min(a,b,c)<=0: raise ValueError('M1, V1 y M2 deben ser positivos.')
-        return a*b/c,0,0
-    if op==703:
-        if min(a,b,c)<=0: raise ValueError('Masa, masa molar y volumen deben ser positivos.')
-        return (a/b)/c,0,0
-
-def acid(op,x):
-    if x<=0: raise ValueError('La concentracion debe ser positiva.')
-    if op==801: h=x
-    elif op==802: h=10**(-x)
-    elif op==803: h=1e-14/x
-    else: h=10**(-(14-x))
-    ph=-math.log10(h); poh=14-ph; oh=1e-14/h
-    return ph,poh,h,oh
-
-def neutral(a,b,c):
-    if min(a,b,c)<=0: raise ValueError('Todos los datos deben ser positivos.')
-    return a*b/c
-
 try:
     op=int(gv('QOP')); a=float(gv('QA')); b=float(gv('QB'))
     c=float(gv('QC')); d=float(gv('QD'))
@@ -179,16 +132,6 @@ try:
         p,n,e=atom(a,b,c); ok(p,n,e,'Protones = '+str(p)+'\nNeutrones = '+str(n)+'\nElectrones = '+str(e))
     elif op==402:
         sym,cfg,period=electron_config(a); ok(a,period,0,sym+'  Z='+str(int(a))+'\nConfiguracion:\n'+cfg+'\nPeriodo = '+str(period))
-    elif 501<=op<=503:
-        mol,part,mass=mole(op,a,b); ok(mol,part,mass,'Moles = '+sci(mol)+' mol\nParticulas = '+sci(part)+'\nMasa = '+sci(mass)+' g')
-    elif op==601:
-        p,v,n,t=gas(op,a,b,c,d); ok(p,v,n,'P = '+sci(p)+' atm\nV = '+sci(v)+' L\nn = '+sci(n)+' mol\nT = '+sci(t)+' K')
-    elif 701<=op<=703:
-        x,_,_=solution(op,a,b,c); ok(x,0,0,('V2 = ' if op==702 else 'M = ')+sci(x)+(' L' if op==702 else ' mol/L'))
-    elif 801<=op<=804:
-        ph,poh,h,oh=acid(op,a); ok(ph,poh,h,'pH = '+sci(ph)+'\npOH = '+sci(poh)+'\n[H+] = '+sci(h)+' M\n[OH-] = '+sci(oh)+' M')
-    elif op==901:
-        v=neutral(a,b,c); ok(v,0,0,'Volumen requerido = '+sci(v)+' L')
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -198,13 +141,28 @@ EXPORT QUIMICA_HYBRID()
 BEGIN
  LOCAL u:=1;
  REPEAT
-  CHOOSE(u,"QUIMICA HYBRID","ESTRUCTURA ATOMICA","MOL Y ESTEQUIOMETRIA","GASES Y SOLUCIONES","ACIDOS Y BASES","FORMULARIO");
+  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA");
   IF u==1 THEN QH_ATOMICA(); END;
-  IF u==2 THEN QH_MOL(); END;
-  IF u==3 THEN QH_GASES(); END;
-  IF u==4 THEN QH_ACIDOS(); END;
-  IF u==5 THEN QH_FORMULARIO(); END;
+  IF u==2 THEN QH_UNIDAD2(); END;
  UNTIL u==0;
+END;
+
+QH_UNIDAD2()
+BEGIN
+ LOCAL o:=1,z:=17;
+ REPEAT
+  CHOOSE(o,"TABLA PERIODICA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO");
+  IF o==1 THEN
+   IF INPUT(z,"TABLA PERIODICA","Numero atomico Z") THEN
+    QH_RUN(402,z,0,0,0,"ELEMENTO");
+   END;
+  END;
+  IF o==2 THEN
+   IF INPUT(z,"ANALISIS ELECTRONICO","Numero atomico Z") THEN
+    QH_RUN(402,z,0,0,0,"ANALISIS ELECTRONICO");
+   END;
+  END;
+ UNTIL o==0;
 END;
 
 QH_RUN(op,a,b,c,d,titulo)
@@ -254,44 +212,6 @@ BEGIN
   IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_RUN(401,a,b,c,0,"ATOMO / ION"); END; END;
   IF o==10 THEN a:=17; IF INPUT(a,"CONFIGURACION","Numero atomico Z") THEN QH_RUN(402,a,0,0,0,"CONFIGURACION"); END; END;
  UNTIL o==0;
-END;
-
-QH_MOL()
-BEGIN
- LOCAL o:=1,a:=18,b:=18.015;
- REPEAT
-  CHOOSE(o,"MOL Y PARTICULAS","MASA A MOLES","PARTICULAS A MOLES","MOLES A PARTICULAS");
-  IF o==1 THEN IF INPUT({a,b},"MASA A MOLES",{"Masa (g)","Masa molar (g/mol)"}) THEN QH_RUN(501,a,b,0,0,"MOLES"); END; END;
-  IF o==2 THEN a:=6.02214076E23; IF INPUT(a,"PARTICULAS","Cantidad") THEN QH_RUN(502,a,0,0,0,"MOLES"); END; END;
-  IF o==3 THEN a:=1;b:=18.015; IF INPUT({a,b},"MOLES",{"Moles","Masa molar (opcional)"}) THEN QH_RUN(503,a,b,0,0,"PARTICULAS"); END; END;
- UNTIL o==0;
-END;
-
-QH_GASES()
-BEGIN
- LOCAL o:=1,p:=1,v:=-1,n:=1,t:=273.15,a:=1,b:=1,c:=1;
- REPEAT
-  CHOOSE(o,"GASES Y SOLUCIONES","GAS IDEAL PV=nRT","MOLARIDAD n/V","DILUCION M1V1=M2V2","MOLARIDAD DESDE MASA");
-  IF o==1 THEN IF INPUT({p,v,n,t},"GAS IDEAL",{"P atm (-1?)","V L (-1?)","n mol (-1?)","T K (-1?)"}) THEN QH_RUN(601,p,v,n,t,"GAS IDEAL"); END; END;
-  IF o==2 THEN a:=1;b:=1; IF INPUT({a,b},"MOLARIDAD",{"Moles","Volumen (L)"}) THEN QH_RUN(701,a,b,0,0,"MOLARIDAD"); END; END;
-  IF o==3 THEN a:=1;b:=0.1;c:=0.2; IF INPUT({a,b,c},"DILUCION",{"M1","V1 (L)","M2"}) THEN QH_RUN(702,a,b,c,0,"DILUCION"); END; END;
-  IF o==4 THEN a:=10;b:=58.44;c:=1; IF INPUT({a,b,c},"MOLARIDAD",{"Masa (g)","Masa molar","Volumen (L)"}) THEN QH_RUN(703,a,b,c,0,"MOLARIDAD"); END; END;
- UNTIL o==0;
-END;
-
-QH_ACIDOS()
-BEGIN
- LOCAL o:=1,a:=0.01,b:=0.1,c:=0.1;
- REPEAT
-  CHOOSE(o,"ACIDOS Y BASES","DESDE [H+]","DESDE pH","DESDE [OH-]","DESDE pOH","NEUTRALIZACION MaVa=MbVb");
-  IF o>=1 AND o<=4 THEN IF INPUT(a,"ACIDOS Y BASES","Dato conocido") THEN QH_RUN(800+o,a,0,0,0,"ACIDOS Y BASES"); END; END;
-  IF o==5 THEN a:=0.1;b:=0.025;c:=0.2; IF INPUT({a,b,c},"NEUTRALIZACION",{"Ma","Va (L)","Mb"}) THEN QH_RUN(901,a,b,c,0,"NEUTRALIZACION"); END; END;
- UNTIL o==0;
-END;
-
-QH_FORMULARIO()
-BEGIN
- QH_RESULT("FORMULARIO","E = h f = h c / lambda\nBohr: En = -13.6/n^2 eV\nE = m c^2\nn = m/MM = N/NA\nPV = nRT\nM = n/V\nM1 V1 = M2 V2\npH = -log[H+]\npH + pOH = 14\n[H+][OH-] = 1E-14");
 END;
 
 START()
