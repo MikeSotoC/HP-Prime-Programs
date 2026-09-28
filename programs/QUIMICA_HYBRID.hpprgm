@@ -21,6 +21,10 @@ QSUB1:=1;
 QSUB2:=1;
 QSYM1:="";
 QSYM2:="";
+QRID:=0;
+QMODE:=0;
+QFORM:="";
+QGROUP:="";
 
 #PYTHON CHEM_ENGINE
 import hpprime as hp
@@ -167,8 +171,59 @@ def traditional(sym,val,kind):
     suf=lo if val==vlo else hi if val==vhi else ''
     if not suf: return ''
     if kind=='oxido': return 'oxido '+root+suf
+    if kind=='peroxido': return 'peroxido '+root+suf
     if kind=='hidruro': return 'hidruro '+root+suf
     return root+suf
+
+RADICALS={
+  1:('OH',-1,'hidroxido',{'O':1,'H':1}), 2:('NO3',-1,'nitrato',{'N':1,'O':3}),
+  3:('NO2',-1,'nitrito',{'N':1,'O':2}), 4:('SO4',-2,'sulfato',{'S':1,'O':4}),
+  5:('SO3',-2,'sulfito',{'S':1,'O':3}), 6:('CO3',-2,'carbonato',{'C':1,'O':3}),
+  7:('PO4',-3,'fosfato',{'P':1,'O':4}), 8:('ClO',-1,'hipoclorito',{'Cl':1,'O':1}),
+  9:('ClO2',-1,'clorito',{'Cl':1,'O':2}), 10:('ClO3',-1,'clorato',{'Cl':1,'O':3}),
+ 11:('ClO4',-1,'perclorato',{'Cl':1,'O':4}), 12:('MnO4',-1,'permanganato',{'Mn':1,'O':4}),
+ 13:('CrO4',-2,'cromato',{'Cr':1,'O':4}), 14:('Cr2O7',-2,'dicromato',{'Cr':2,'O':7}),
+ 15:('CN',-1,'cianuro',{'C':1,'N':1}), 16:('NH4',1,'amonio',{'N':1,'H':4})}
+
+def counts_text(parts):
+    order=[]; total={}
+    for comp,mul in parts:
+        for s,n in comp.items():
+            if s not in total: order.append(s); total[s]=0
+            total[s]+=n*mul
+    return ', '.join(s+'='+str(total[s]) for s in order)
+
+def group_compound(z,val,rid,mode):
+    z=int(z); val=int(val); rid=int(rid); mode=int(mode)
+    if rid not in RADICALS: raise ValueError('Radical no reconocido.')
+    rf,rv,rname,rcomp=RADICALS[rid]
+    names=hp.eval('TP_NOMBRES()')
+    if mode==2:
+        if rv>=0 or rf=='OH': raise ValueError('Ese ion no forma un oxoacido aqui.')
+        s1='H'; name1='hidrogeno'; val=1; z=1
+    else:
+        if z<1 or z>118: raise ValueError('Seleccione un elemento valido.')
+        s1=SYMBOLS[z-1]; name1=str(names[z-1])
+    if val==0 or val*rv>=0: raise ValueError('Las cargas deben tener signos opuestos.')
+    g=gcd(val,rv); n1=abs(rv)//g; ng=abs(val)//g
+    grouped=len(rcomp)>1 and ng>1
+    formula=s1+('' if n1==1 else str(n1))+('('+rf+')' if grouped else rf)+('' if ng==1 else str(ng))
+    q1=n1*val; q2=ng*rv
+    if mode==2:
+        kind='OXOACIDO'
+        acid_names={'NO3':'acido nitrico','NO2':'acido nitroso','SO4':'acido sulfurico','SO3':'acido sulfuroso','CO3':'acido carbonico','PO4':'acido fosforico','ClO':'acido hipocloroso','ClO2':'acido cloroso','ClO3':'acido clorico','ClO4':'acido perclorico','MnO4':'acido permanganico','CrO4':'acido cromico','Cr2O7':'acido dicromico','CN':'acido cianhidrico'}
+        stock=acid_names.get(rf,'acido de '+rname)
+        systematic='hidrogeno + '+rname
+        reason='Comienza con H y contiene un oxoanion.'
+    else:
+        kind='HIDROXIDO' if rf=='OH' else ('SAL DE AMONIO' if rf=='NH4' else 'OXOSAL')
+        stock=rname+' de '+name1+(' ('+roman(abs(val))+')' if s1!='H' else '')
+        systematic=(prefix(ng)+rname+' de '+prefix(n1)+name1.lower()).replace('monohidroxido','hidroxido')
+        reason=('Contiene el grupo OH unido a un cation.' if rf=='OH' else 'Contiene el ion amonio.' if rf=='NH4' else 'Combina un cation con un oxoanion.')
+    st_var('QSYM1',s1); st_var('QSYM2',rf); st_var('QGROUP',rf); st_var('QFORM',formula)
+    sv('QSUB1',n1); sv('QSUB2',ng); sv('QV1',val); sv('QV2',rv)
+    atoms=counts_text([({s1:1},n1),(rcomp,ng)])
+    return ('1. INTERPRETACION\nFormula: '+formula+'\nFuncion: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+rf+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACION\nMCD = '+str(g)+'\nSubindices: '+str(n1)+' y '+str(ng)+('\nEl parentesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACION\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nAtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+'\nTradicional: '+stock)
 
 def formulate(z1,z2,v1,v2):
     z1=int(z1); z2=int(z2); v1=int(v1); v2=int(v2)
@@ -181,7 +236,11 @@ def formulate(z1,z2,v1,v2):
     names=hp.eval('TP_NOMBRES()')
     name1=str(names[z1-1]); name2=str(names[z2-1])
     formula=s1+('' if n1==1 else str(n1))+s2+('' if n2==1 else str(n2))
-    if s2=='O' and v2==-2:
+    if s2=='O' and v2==-1:
+        kind='peroxido'
+        stock='peroxido de '+name1
+        systematic=(prefix(n2)+'oxido de '+prefix(n1)+name1.lower()).replace('monooxido','monoxido')
+    elif s2=='O' and v2==-2:
         kind='oxido'
         stock='oxido de '+name1+' ('+roman(abs(v1))+')'
         systematic=(prefix(n2)+'oxido de '+prefix(n1)+name1.lower()).replace('monooxido','monoxido')
@@ -189,6 +248,13 @@ def formulate(z1,z2,v1,v2):
         kind='hidruro'
         stock='hidruro de '+name1+' ('+roman(abs(v1))+')'
         systematic=prefix(n2)+'hidruro de '+prefix(n1)+name1.lower()
+    elif s1=='H' and v1==1:
+        kind='hidracido'
+        acid={'F':'acido fluorhidrico','Cl':'acido clorhidrico','Br':'acido bromhidrico',
+              'I':'acido yodhidrico','S':'acido sulfhidrico','Se':'acido selenhidrico',
+              'Te':'acido telurhidrico'}
+        stock=acid.get(s2,'compuesto binario de hidrogeno y '+name2.lower())
+        systematic=prefix(n1)+'hidrogeno de '+prefix(n2)+name2.lower()
     else:
         kind='binario'
         endings={'F':'fluoruro','Cl':'cloruro','Br':'bromuro','I':'yoduro',
@@ -285,6 +351,9 @@ try:
     elif op==1001:
         text=formulate(gv('QZ1'),gv('QZ2'),gv('QV1'),gv('QV2'))
         ok(gv('QSUB1'),gv('QSUB2'),0,text)
+    elif op==1002:
+        text=group_compound(gv('QZ1'),gv('QV1'),gv('QRID'),gv('QMODE'))
+        ok(gv('QSUB1'),gv('QSUB2'),0,text)
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -306,7 +375,7 @@ BEGIN
  LOCAL modo:=1;
  LOCAL z1,z2,v1:=2,v2:=-2;
  REPEAT
-  CHOOSE(modo,"FORMULAR Y NOMBRAR","ELEGIR EN TABLA","RADICALES");
+  CHOOSE(modo,"FORMULAR, INTERPRETAR Y NOMBRAR","COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES");
   IF modo==1 THEN
    z1:=TP_SELECCIONAR("PRIMER ELEMENTO");
    IF z1>0 THEN
@@ -319,8 +388,21 @@ BEGIN
     END;
    END;
   END;
-  IF modo==2 THEN QH_RADICALES(); END;
+  IF modo==2 THEN QH_GRUPO(1); END;
+  IF modo==3 THEN QH_GRUPO(2); END;
+  IF modo==4 THEN QH_SIMPLE(); END;
+  IF modo==5 THEN QH_CATALOGO_RADICALES(); END;
  UNTIL modo==0;
+END;
+
+QH_SIMPLE()
+BEGIN
+ LOCAL z:=TP_SELECCIONAR("ELEMENTO PURO");
+ LOCAL s,n,ss:=TP_SIMBOLOS(),nn:=TP_NOMBRES();
+ IF z==0 THEN RETURN; END;
+ s:=ss(z); n:=nn(z);
+ QH_DIBUJAR_FORMULA(s,1,0,"",1,0);
+ QH_RESULT("SUSTANCIA SIMPLE","1. INTERPRETACION"+CHAR(10)+"Formula: "+s+CHAR(10)+"Funcion: SUSTANCIA SIMPLE"+CHAR(10)+CHAR(10)+"2. OXIDACION"+CHAR(10)+"Todo elemento libre tiene numero de oxidacion 0."+CHAR(10)+s+" = 0"+CHAR(10)+CHAR(10)+"3. NOMBRE"+CHAR(10)+n);
 END;
 
 QH_RUN_NOM()
@@ -338,8 +420,56 @@ END;
 QH_RADICALES()
 BEGIN
  LOCAL r:=1;
- CHOOSE(r,"RADICALES","OH-  HIDROXIDO","NO3-  NITRATO","SO4(2-)  SULFATO","CO3(2-)  CARBONATO","PO4(3-)  FOSFATO","NH4+  AMONIO");
- IF r>0 THEN MSGBOX("Radical conservado para una ampliacion posterior. La formulacion actual usa dos elementos de la tabla."); END;
+ CHOOSE(r,"ESCOJA EL RADICAL","OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO","MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","CN(-1) CIANURO","NH4(+1) AMONIO");
+ RETURN r;
+END;
+
+QH_CATALOGO_RADICALES()
+BEGIN
+ LOCAL r:=QH_RADICALES();
+ IF r>0 THEN MSGBOX("Este ion se puede usar en HIDROXIDO U OXOSAL. El programa lo interpreta como grupo y coloca parentesis cuando se repite."); END;
+END;
+
+QH_GRUPO(tipo)
+BEGIN
+ LOCAL r:=QH_RADICALES();
+ LOCAL z:=1,v:=1;
+ IF r==0 THEN RETURN; END;
+ IF tipo==2 THEN
+  IF r==1 OR r==16 THEN MSGBOX("Seleccione un oxoanion para formar un oxoacido."); RETURN; END;
+ ELSE
+  z:=TP_SELECCIONAR("ELEMENTO O CATION");
+  IF z==0 THEN RETURN; END;
+  IF NOT INPUT(v,"CARGA DEL ELEMENTO","Numero de oxidacion","Use signo + o -") THEN RETURN; END;
+ END;
+ QZ1:=z; QV1:=v; QRID:=r; QMODE:=tipo; QOP:=1002; QERR:=0; QTEXT:="";
+ PYTHON(CHEM_ENGINE);
+ IF QERR THEN MSGBOX(QTEXT); ELSE
+  QH_DIBUJAR_GRUPO(QSYM1,QSUB1,QV1,QGROUP,QSUB2,QV2);
+  QH_RESULT("INTERPRETACION QUIMICA",QTEXT);
+ END;
+END;
+
+QH_DIBUJAR_GRUPO(s1,n1,v1,g,n2,v2)
+BEGIN
+ LOCAL x:=35,w1:=IFTE(SIZE(s1)==1,27,43),wg:=SIZE(g)*18;
+ RECT_P(#FFFFFF);
+ TEXTOUT_P("FORMULA INTERPRETADA",65,18,2,#183B56);
+ TEXTOUT_P(IFTE(v1>0,"+"+STRING(v1),STRING(v1)),x+3,67,1,#B3261E);
+ TEXTOUT_P(s1,x,91,4,#111111);
+ IF n1>1 THEN TEXTOUT_P(STRING(n1),x+w1-3,126,2,#111111); END;
+ x:=x+w1+IFTE(n1>1,12,3);
+ TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+10,67,1,#B3261E);
+ IF n2>1 AND SIZE(g)>1 THEN
+  TEXTOUT_P("("+g+")",x,91,4,#111111);
+  TEXTOUT_P(STRING(n2),x+wg+24,126,2,#111111);
+ ELSE
+  TEXTOUT_P(g,x,91,4,#111111);
+  IF n2>1 THEN TEXTOUT_P(STRING(n2),x+wg-3,126,2,#111111); END;
+ END;
+ RECT_P(0,216,319,239,#183B56,#183B56);
+ TEXTOUT_P("ENTER PARA VER INTERPRETACION",35,222,1,#FFFFFF);
+ FREEZE;
 END;
 
 QH_DIBUJAR_FORMULA(s1,n1,v1,s2,n2,v2)
@@ -353,9 +483,11 @@ BEGIN
  TEXTOUT_P(s1,x,91,4,#111111);
  IF n1>1 THEN TEXTOUT_P(STRING(n1),x+ancho1-4,126,2,#111111); END;
  x:=x+ancho1+IFTE(n1>1,12,2);
- TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+4,67,1,#B3261E);
- TEXTOUT_P(s2,x,91,4,#111111);
- IF n2>1 THEN TEXTOUT_P(STRING(n2),x+ancho2-4,126,2,#111111); END;
+ IF SIZE(s2)>0 THEN
+  TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+4,67,1,#B3261E);
+  TEXTOUT_P(s2,x,91,4,#111111);
+  IF n2>1 THEN TEXTOUT_P(STRING(n2),x+ancho2-4,126,2,#111111); END;
+ END;
  RECT_P(0,216,319,239,#183B56,#183B56);
  TEXTOUT_P("ENTER PARA VER SOLUCION",65,222,1,#FFFFFF);
  FREEZE;
