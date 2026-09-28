@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.1 - HP Prime G1/G2
+// QUIMICA HYBRID 2.2 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -36,9 +36,14 @@ QLASTSHOW:="";
 #PYTHON CHEM_ENGINE
 import hpprime as hp
 
-H=6.62607015e-34
-C=299792458.0
-EV=1.602176634e-19
+# Valores didacticos tomados del HPP de referencia del usuario.
+H=6.63e-34
+C=3.0e8
+EV=1.6e-19
+ERG=1.0e7
+A0=0.529
+V0=2.18e8
+RY=13.6
 SYMBOLS=('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr '
          'Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu '
          'Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr '
@@ -91,11 +96,11 @@ def bohr(op,n1,n2):
     if n1<1 or int(n1)!=n1: raise ValueError('n debe ser entero positivo.')
     n1=int(n1)
     if op==201:
-        return 0.529*n1*n1,2.18769126364e8/n1,-13.605693122994/(n1*n1)
+        return A0*n1*n1,V0/n1,-RY/(n1*n1)
     if n2<1 or int(n2)!=n2 or n1==n2:
         raise ValueError('Use dos niveles enteros positivos y distintos.')
     n2=int(n2)
-    de=13.605693122994*(1/(n1*n1)-1/(n2*n2))
+    de=RY*(1/(n1*n1)-1/(n2*n2))
     ej=abs(de)*EV
     return de,ej,H*C/ej
 
@@ -602,18 +607,18 @@ try:
         x,y,z=bohr(op,a,b)
         if op==201:
             text=('1. DATOS\nn = '+str(int(a))+'\n\n2. FORMULAS\n'
-                  'rₙ = 0.529·n²\nvₙ = 2.18769×10⁸/n\nEₙ = −13.6057/n²\n\n'
+                  'rₙ = 0.529·n²\nvₙ = 2.18×10⁸/n\nEₙ = −13.6/n²\n\n'
                   '3. SUSTITUCIÓN\nrₙ = 0.529('+str(int(a))+')²\n'
-                  'vₙ = 2.18769×10⁸/'+str(int(a))+'\n'
-                  'Eₙ = −13.6057/'+str(int(a))+'²\n\n4. RESULTADO\n'
+                  'vₙ = 2.18×10⁸/'+str(int(a))+'\n'
+                  'Eₙ = −13.6/'+str(int(a))+'²\n\n4. RESULTADO\n'
                   'Radio = '+sci(x)+' Å\nVelocidad = '+sci(y)+' cm·s⁻¹\nEnergía = '+sci(z)+' eV')
             ok(x,y,z,text)
         else:
             kind='EMISION' if x<0 else 'ABSORCION'
             text=('1. DATOS\nni = '+str(int(a))+'\nnf = '+str(int(b))+'\n\n'
-                  '2. FÓRMULA\nΔE = 13.6057(1/nᵢ² − 1/n_f²)\n'
+                  '2. FÓRMULA\nΔE = 13.6(1/nᵢ² − 1/n_f²)\n'
                   'E(fotón) = |ΔE|\nλ = h·c/E\n\n3. SUSTITUCIÓN\n'
-                  'ΔE = 13.6057(1/'+str(int(a))+'² − 1/'+str(int(b))+'²)\n'
+                  'ΔE = 13.6(1/'+str(int(a))+'² − 1/'+str(int(b))+'²)\n'
                   'ΔE = '+sci(x)+' eV\nE(fotón) = '+sci(y)+' J\n\n'
                   '4. RESULTADO\nTipo = '+kind+'\nλ = '+sci(z)+' m\n'
                   'λ = '+sci(z*1e9)+' nm\nν = '+sci(C/z)+' Hz')
