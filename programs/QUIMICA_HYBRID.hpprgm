@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 1.3 - HP Prime G1/G2
+// QUIMICA HYBRID 1.4 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -25,6 +25,7 @@ QRID:=0;
 QMODE:=0;
 QFORM:="";
 QGROUP:="";
+QREV:=0;
 
 #PYTHON CHEM_ENGINE
 import hpprime as hp
@@ -259,7 +260,19 @@ RADICALS={
  31:('MnO4',-2,'manganato',{'Mn':1,'O':4}), 32:('S2O3',-2,'tiosulfato',{'S':2,'O':3}),
  33:('C2O4',-2,'oxalato',{'C':2,'O':4}), 34:('CH3COO',-1,'acetato',{'C':2,'H':3,'O':2}),
  35:('HCO3',-1,'hidrogenocarbonato (bicarbonato)',{'H':1,'C':1,'O':3}),
- 36:('HSO4',-1,'hidrogenosulfato (bisulfato)',{'H':1,'S':1,'O':4})}
+ 36:('HSO4',-1,'hidrogenosulfato (bisulfato)',{'H':1,'S':1,'O':4}),
+ 37:('PO3',-3,'fosfito',{'P':1,'O':3}), 38:('HPO4',-2,'hidrogenofosfato',{'H':1,'P':1,'O':4}),
+ 39:('H2PO4',-1,'dihidrogenofosfato',{'H':2,'P':1,'O':4}),
+ 40:('HSO3',-1,'hidrogenosulfito (bisulfito)',{'H':1,'S':1,'O':3}),
+ 41:('OCN',-1,'cianato',{'O':1,'C':1,'N':1}), 42:('SCN',-1,'tiocianato',{'S':1,'C':1,'N':1}),
+ 43:('O2',-2,'peroxido',{'O':2}), 44:('O2',-1,'superoxido',{'O':2}),
+ 45:('S2O8',-2,'peroxodisulfato (persulfato)',{'S':2,'O':8}),
+ 46:('TeO3',-2,'telurito',{'Te':1,'O':3}), 47:('TeO4',-2,'telurato',{'Te':1,'O':4}),
+ 48:('MoO4',-2,'molibdato',{'Mo':1,'O':4}), 49:('WO4',-2,'wolframato',{'W':1,'O':4}),
+ 50:('VO3',-1,'metavanadato',{'V':1,'O':3}), 51:('VO4',-3,'ortovanadato',{'V':1,'O':4}),
+ 52:('AlO2',-1,'aluminato',{'Al':1,'O':2}), 53:('H3O',1,'hidronio',{'H':3,'O':1}),
+ 54:('HCOO',-1,'formiato',{'H':1,'C':1,'O':2}),
+ 55:('C6H5O7',-3,'citrato',{'C':6,'H':5,'O':7})}
 
 BINARY_ANIONS={'F':'fluoruro','Cl':'cloruro','Br':'bromuro','I':'yoduro','At':'astaturo',
  'S':'sulfuro','Se':'seleniuro','Te':'telururo','N':'nitruro','P':'fosfuro',
@@ -280,6 +293,10 @@ OXOACIDS={'NO3':'acido nitrico','NO2':'acido nitroso','SO4':'acido sulfurico',
  'AsO4':'acido arsenico','SeO3':'acido selenioso','SeO4':'acido selenico',
  'MnO4':'acido manganico o permanganico segun la carga','CrO4':'acido cromico',
  'Cr2O7':'acido dicromico','S2O3':'acido tiosulfurico','C2O4':'acido oxalico'}
+OXOACIDS.update({'PO3':'acido fosforoso','TeO3':'acido teluroso','TeO4':'acido telurico',
+ 'MoO4':'acido molibdico','WO4':'acido tungstico','VO3':'acido metavanadico',
+ 'VO4':'acido ortovanadico','OCN':'acido cianico','SCN':'acido tiocianico',
+ 'S2O8':'acido peroxodisulfurico'})
 
 def counts_text(parts):
     order=[]; total={}
@@ -295,7 +312,7 @@ def group_compound(z,val,rid,mode):
     rf,rv,rname,rcomp=RADICALS[rid]
     names=hp.eval('TP_NOMBRES()')
     if mode==2:
-        if rv>=0 or rf=='OH' or rid in (34,35,36):
+        if rv>=0 or rf=='OH' or rid in (34,35,36,38,39,40,43,44,52,54,55):
             raise ValueError('Ese ion no se usa como oxoacido directo en este constructor.')
         s1='H'; name1='hidrogeno'; val=1; z=1
     else:
@@ -304,7 +321,11 @@ def group_compound(z,val,rid,mode):
     if val==0 or val*rv>=0: raise ValueError('Las cargas deben tener signos opuestos.')
     g=gcd(val,rv); n1=abs(rv)//g; ng=abs(val)//g
     grouped=len(rcomp)>1 and ng>1
-    formula=s1+('' if n1==1 else str(n1))+('('+rf+')' if grouped else rf)+('' if ng==1 else str(ng))
+    reverse=rv>0
+    if reverse:
+        formula=('('+rf+')' if grouped else rf)+('' if ng==1 else str(ng))+s1+('' if n1==1 else str(n1))
+    else:
+        formula=s1+('' if n1==1 else str(n1))+('('+rf+')' if grouped else rf)+('' if ng==1 else str(ng))
     q1=n1*val; q2=ng*rv
     if mode==2:
         kind='OXOACIDO'
@@ -318,12 +339,18 @@ def group_compound(z,val,rid,mode):
             reason='En disolucion acuosa se nombra con la terminacion -hidrico.'
     else:
         kind='HIDROXIDO' if rf=='OH' else ('SAL DE AMONIO' if rf=='NH4' else 'OXOSAL')
-        stock=rname+' de '+name1+(' ('+roman(abs(val))+')' if s1!='H' else '')
-        systematic=(prefix(ng)+rname+' de '+prefix(n1)+name1.lower()).replace('monohidroxido','hidroxido')
-        reason=('Contiene el grupo OH unido a un cation.' if rf=='OH' else 'Contiene el ion amonio.' if rf=='NH4' else 'Combina un cation con un oxoanion.')
-        tradname=traditional(s1,abs(val),'hidroxido' if rf=='OH' else 'oxosal',name1,rname)
+        if reverse:
+            anname=BINARY_ANIONS.get(s1,name1.lower()+'uro')
+            stock=anname+' de '+rname; systematic=stock; tradname=stock
+            reason='Combina el cation '+rname+' con el anion '+anname+'.'
+        else:
+            stock=rname+' de '+name1+(' ('+roman(abs(val))+')' if s1!='H' else '')
+            systematic=(prefix(ng)+rname+' de '+prefix(n1)+name1.lower()).replace('monohidroxido','hidroxido')
+            reason=('Contiene el grupo OH unido a un cation.' if rf=='OH' else 'Combina un cation con un oxoanion.')
+            tradname=traditional(s1,abs(val),'hidroxido' if rf=='OH' else 'oxosal',name1,rname)
     st_var('QSYM1',s1); st_var('QSYM2',rf); st_var('QGROUP',rf); st_var('QFORM',formula)
     sv('QSUB1',n1); sv('QSUB2',ng); sv('QV1',val); sv('QV2',rv)
+    sv('QREV',1 if reverse else 0)
     atoms=counts_text([({s1:1},n1),(rcomp,ng)])
     return ('1. INTERPRETACION\nFormula: '+formula+'\nFuncion: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+rf+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACION\nMCD = '+str(g)+'\nSubindices: '+str(n1)+' y '+str(ng)+('\nEl parentesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACION\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nAtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+'\nTradicional: '+tradname)
 
@@ -473,7 +500,7 @@ BEGIN
  LOCAL modo:=1;
  LOCAL z1,z2,v1:=2,v2:=-2;
  REPEAT
-  CHOOSE(modo,"FORMULAR, INTERPRETAR Y NOMBRAR","COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES");
+  CHOOSE(modo,"FORMULAR, INTERPRETAR Y NOMBRAR","COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES","CATALOGO DE ANIONES -URO");
   IF modo==1 THEN
    z1:=TP_SELECCIONAR("PRIMER ELEMENTO");
    IF z1>0 THEN
@@ -490,6 +517,7 @@ BEGIN
   IF modo==3 THEN QH_GRUPO(2); END;
   IF modo==4 THEN QH_SIMPLE(); END;
   IF modo==5 THEN QH_CATALOGO_RADICALES(); END;
+  IF modo==6 THEN QH_CATALOGO_URO(); END;
  UNTIL modo==0;
 END;
 
@@ -518,7 +546,7 @@ END;
 QH_RADICALES()
 BEGIN
  LOCAL r:=1;
- CHOOSE(r,"ESCOJA EL RADICAL","OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO","MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","CN(-1) CIANURO","NH4(+1) AMONIO","BrO(-1) HIPOBROMITO","BrO2(-1) BROMITO","BrO3(-1) BROMATO","BrO4(-1) PERBROMATO","IO(-1) HIPOYODITO","IO2(-1) YODITO","IO3(-1) YODATO","IO4(-1) PERYODATO","BO3(-3) BORATO","SiO3(-2) SILICATO","AsO3(-3) ARSENITO","AsO4(-3) ARSENATO","SeO3(-2) SELENITO","SeO4(-2) SELENATO","MnO4(-2) MANGANATO","S2O3(-2) TIOSULFATO","C2O4(-2) OXALATO","CH3COO(-1) ACETATO","HCO3(-1) BICARBONATO","HSO4(-1) BISULFATO");
+ CHOOSE(r,"ESCOJA EL RADICAL","OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO","MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","CN(-1) CIANURO","NH4(+1) AMONIO","BrO(-1) HIPOBROMITO","BrO2(-1) BROMITO","BrO3(-1) BROMATO","BrO4(-1) PERBROMATO","IO(-1) HIPOYODITO","IO2(-1) YODITO","IO3(-1) YODATO","IO4(-1) PERYODATO","BO3(-3) BORATO","SiO3(-2) SILICATO","AsO3(-3) ARSENITO","AsO4(-3) ARSENATO","SeO3(-2) SELENITO","SeO4(-2) SELENATO","MnO4(-2) MANGANATO","S2O3(-2) TIOSULFATO","C2O4(-2) OXALATO","CH3COO(-1) ACETATO","HCO3(-1) BICARBONATO","HSO4(-1) BISULFATO","PO3(-3) FOSFITO","HPO4(-2) HIDROGENOFOSFATO","H2PO4(-1) DIHIDROGENOFOSFATO","HSO3(-1) BISULFITO","OCN(-1) CIANATO","SCN(-1) TIOCIANATO","O2(-2) PEROXIDO","O2(-1) SUPEROXIDO","S2O8(-2) PERSULFATO","TeO3(-2) TELURITO","TeO4(-2) TELURATO","MoO4(-2) MOLIBDATO","WO4(-2) WOLFRAMATO","VO3(-1) METAVANADATO","VO4(-3) ORTOVANADATO","AlO2(-1) ALUMINATO","H3O(+1) HIDRONIO","HCOO(-1) FORMIATO","C6H5O7(-3) CITRATO");
  RETURN r;
 END;
 
@@ -526,6 +554,11 @@ QH_CATALOGO_RADICALES()
 BEGIN
  LOCAL r:=QH_RADICALES();
  IF r>0 THEN MSGBOX("Este ion se puede usar en HIDROXIDO U OXOSAL. El programa lo interpreta como grupo y coloca parentesis cuando se repite."); END;
+END;
+
+QH_CATALOGO_URO()
+BEGIN
+ QH_RESULT("ANIONES TERMINADOS EN -URO","F(-1)  fluoruro"+CHAR(10)+"Cl(-1) cloruro"+CHAR(10)+"Br(-1) bromuro"+CHAR(10)+"I(-1)  yoduro"+CHAR(10)+"At(-1) astaturo"+CHAR(10)+"H(-1)  hidruro"+CHAR(10)+"S(-2)  sulfuro"+CHAR(10)+"Se(-2) seleniuro"+CHAR(10)+"Te(-2) telururo"+CHAR(10)+"N(-3)  nitruro"+CHAR(10)+"P(-3)  fosfuro"+CHAR(10)+"As(-3) arseniuro"+CHAR(10)+"Sb(-3) antimoniuro"+CHAR(10)+"C(-4)  carburo"+CHAR(10)+"Si(-4) siliciuro"+CHAR(10)+"B(-3)  boruro"+CHAR(10)+CHAR(10)+"Se eligen desde la tabla periodica al crear un compuesto binario.");
 END;
 
 QH_GRUPO(tipo)
@@ -553,6 +586,16 @@ BEGIN
  LOCAL x:=35,w1:=IFTE(SIZE(s1)==1,27,43),wg:=SIZE(g)*18;
  RECT_P(#FFFFFF);
  TEXTOUT_P("FORMULA INTERPRETADA",65,18,2,#183B56);
+ IF QREV==1 THEN
+  TEXTOUT_P("+"+STRING(v2),x+10,67,1,#B3261E);
+  IF n2>1 THEN TEXTOUT_P("("+g+")",x,91,4,#111111); TEXTOUT_P(STRING(n2),x+wg+24,126,2,#111111); x:=x+wg+47; ELSE TEXTOUT_P(g,x,91,4,#111111); x:=x+wg+8; END;
+  TEXTOUT_P(STRING(v1),x+3,67,1,#B3261E);
+  TEXTOUT_P(s1,x,91,4,#111111);
+  IF n1>1 THEN TEXTOUT_P(STRING(n1),x+w1-3,126,2,#111111); END;
+  RECT_P(0,216,319,239,#183B56,#183B56);
+  TEXTOUT_P("ENTER PARA VER INTERPRETACION",35,222,1,#FFFFFF);
+  FREEZE; RETURN;
+ END;
  TEXTOUT_P(IFTE(v1>0,"+"+STRING(v1),STRING(v1)),x+3,67,1,#B3261E);
  TEXTOUT_P(s1,x,91,4,#111111);
  IF n1>1 THEN TEXTOUT_P(STRING(n1),x+w1-3,126,2,#111111); END;
