@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.4.4 - HP Prime G1/G2
+// QUIMICA HYBRID 2.4.5 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -1012,22 +1012,32 @@ BEGIN
   END;
   IF o==2 THEN
    IF INPUT(z,"TABLA PERIODICA","Numero atomico Z") THEN
-    QH_RUN(402,z,0,0,0,"ELEMENTO");
+    QH_EJECUTAR(402,z,0,0,0,"ELEMENTO");
    END;
   END;
   IF o==3 THEN
    IF INPUT(z,"ANALISIS ELECTRONICO","Numero atomico Z") THEN
-    QH_RUN(402,z,0,0,0,"ANALISIS ELECTRONICO");
+    QH_EJECUTAR(402,z,0,0,0,"ANALISIS ELECTRONICO");
    END;
   END;
  UNTIL o==0;
 END;
 
-QH_RUN(op,a,b,c,d,titulo)
+QH_EJECUTAR(codigo,valorA,valorB,valorC,valorD,encabezado)
 BEGIN
- QOP:=op; QA:=a; QB:=b; QC:=c; QD:=d; QERR:=0; QTEXT:="";
+ QOP:=codigo;
+ QA:=valorA;
+ QB:=valorB;
+ QC:=valorC;
+ QD:=valorD;
+ QERR:=0;
+ QTEXT:="";
  PYTHON(CHEM_ENGINE);
- IF QERR THEN MSGBOX(QTEXT); ELSE QH_RESULT(titulo,QTEXT); END;
+ IF QERR THEN
+  MSGBOX(QTEXT);
+ ELSE
+  QH_RESULT(encabezado,QTEXT);
+ END;
 END;
 
 QH_RESULT(titulo,texto)
@@ -1101,13 +1111,13 @@ BEGIN
  REPEAT
   CHOOSE(o,"ESTRUCTURA ATOMICA","PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA");
   IF o>=1 AND o<=3 THEN
-   a:=1; IF INPUT(a,"PLANCK","Dato conocido") THEN QH_RUN(100+o,a,0,0,0,"PLANCK"); END;
+   a:=1; IF INPUT(a,"PLANCK","Dato conocido") THEN QH_EJECUTAR(100+o,a,0,0,0,"PLANCK"); END;
   END;
-  IF o==4 THEN a:=1; IF INPUT(a,"MODELO DE BOHR","Nivel n") THEN QH_RUN(201,a,0,0,0,"BOHR"); END; END;
-  IF o==5 THEN a:=1;b:=2; IF INPUT({a,b},"TRANSICION",{"n inicial","n final"}) THEN QH_RUN(202,a,b,0,0,"TRANSICION"); END; END;
-  IF o>=6 AND o<=8 THEN a:=1; IF INPUT(a,"E=mc2","Dato conocido") THEN QH_RUN(295+o,a,0,0,0,"EINSTEIN"); END; END;
-  IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_RUN(401,a,b,c,0,"ATOMO / ION"); END; END;
-  IF o==10 THEN a:=17; IF INPUT(a,"CONFIGURACION","Numero atomico Z") THEN QH_RUN(402,a,0,0,0,"CONFIGURACION"); END; END;
+  IF o==4 THEN a:=1; IF INPUT(a,"MODELO DE BOHR","Nivel n") THEN QH_EJECUTAR(201,a,0,0,0,"BOHR"); END; END;
+  IF o==5 THEN a:=1;b:=2; IF INPUT({a,b},"TRANSICION",{"n inicial","n final"}) THEN QH_EJECUTAR(202,a,b,0,0,"TRANSICION"); END; END;
+  IF o>=6 AND o<=8 THEN a:=1; IF INPUT(a,"E=mc2","Dato conocido") THEN QH_EJECUTAR(295+o,a,0,0,0,"EINSTEIN"); END; END;
+  IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_EJECUTAR(401,a,b,c,0,"ATOMO / ION"); END; END;
+  IF o==10 THEN a:=17; IF INPUT(a,"CONFIGURACION","Numero atomico Z") THEN QH_EJECUTAR(402,a,0,0,0,"CONFIGURACION"); END; END;
  UNTIL o==0;
 END;
 
