@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 1.1 - HP Prime G1/G2
+// QUIMICA HYBRID 1.2 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -161,19 +161,84 @@ def prefix(n):
     p=('','mono','di','tri','tetra','penta','hexa','hepta','octa','nona','deca')
     return p[n] if n<len(p) else str(n)
 
-def traditional(sym,val,kind):
-    roots={'Fe':('ferr','oso','ico',2,3),'Cu':('cupr','oso','ico',1,2),
-           'Hg':('mercur','oso','ico',1,2),'Sn':('estan','oso','ico',2,4),
-           'Pb':('plumb','oso','ico',2,4),'Au':('aur','oso','ico',1,3),
-           'Co':('cobalt','oso','ico',2,3),'Ni':('niquel','oso','ico',2,3)}
-    if sym not in roots: return ''
-    root,lo,hi,vlo,vhi=roots[sym]
-    suf=lo if val==vlo else hi if val==vhi else ''
-    if not suf: return ''
-    if kind=='oxido': return 'oxido '+root+suf
-    if kind=='peroxido': return 'peroxido '+root+suf
-    if kind=='hidruro': return 'hidruro '+root+suf
-    return root+suf
+# Estados positivos usados por la nomenclatura tradicional escolar. Los
+# elementos sin serie tradicional se nombran de forma funcional, sin inventar
+# terminaciones. Esto permite aceptar los 118 elementos con una salida honesta.
+OX_STATES={
+ 'H':(1,), 'Li':(1,), 'Be':(2,), 'B':(3,), 'C':(2,4), 'N':(1,2,3,4,5),
+ 'Na':(1,), 'Mg':(2,), 'Al':(3,), 'Si':(2,4), 'P':(1,3,5), 'S':(2,4,6),
+ 'Cl':(1,3,5,7), 'K':(1,), 'Ca':(2,), 'Sc':(3,), 'Ti':(2,3,4),
+ 'V':(2,3,4,5), 'Cr':(2,3,6), 'Mn':(2,3,4,6,7), 'Fe':(2,3),
+ 'Co':(2,3), 'Ni':(2,3), 'Cu':(1,2), 'Zn':(2,), 'Ga':(3,), 'Ge':(2,4),
+ 'As':(3,5), 'Se':(2,4,6), 'Br':(1,3,5,7), 'Rb':(1,), 'Sr':(2,),
+ 'Y':(3,), 'Zr':(4,), 'Nb':(3,5), 'Mo':(2,3,4,5,6), 'Tc':(4,7),
+ 'Ru':(2,3,4,6,8), 'Rh':(1,3), 'Pd':(2,4), 'Ag':(1,), 'Cd':(2,),
+ 'In':(1,3), 'Sn':(2,4), 'Sb':(3,5), 'Te':(2,4,6), 'I':(1,3,5,7),
+ 'Cs':(1,), 'Ba':(2,), 'La':(3,), 'Ce':(3,4), 'Pr':(3,4), 'Nd':(3,),
+ 'Sm':(2,3), 'Eu':(2,3), 'Gd':(3,), 'Tb':(3,4), 'Dy':(3,), 'Ho':(3,),
+ 'Er':(3,), 'Tm':(2,3), 'Yb':(2,3), 'Lu':(3,), 'Hf':(4,), 'Ta':(5,),
+ 'W':(2,3,4,5,6), 'Re':(2,3,4,5,6,7), 'Os':(2,3,4,6,8),
+ 'Ir':(1,3,4), 'Pt':(2,4), 'Au':(1,3), 'Hg':(1,2), 'Tl':(1,3),
+ 'Pb':(2,4), 'Bi':(3,5), 'Po':(2,4,6), 'Fr':(1,), 'Ra':(2,),
+ 'Ac':(3,), 'Th':(4,), 'Pa':(4,5), 'U':(3,4,5,6), 'Np':(3,4,5,6,7),
+ 'Pu':(3,4,5,6), 'Am':(2,3,4,5,6), 'Cm':(3,4), 'Bk':(3,4),
+ 'Cf':(2,3,4), 'Es':(2,3), 'Fm':(2,3), 'Md':(2,3), 'No':(2,3), 'Lr':(3,),
+ 'Rf':(4,), 'Db':(5,), 'Sg':(6,), 'Bh':(7,), 'Hs':(8,), 'Mt':(1,3),
+ 'Ds':(2,4), 'Rg':(1,3), 'Cn':(2,), 'Nh':(1,3), 'Fl':(2,4),
+ 'Mc':(1,3), 'Lv':(2,4), 'Ts':(1,3,5,7), 'Og':(2,)}
+
+TR_ROOT={
+ 'H':'hidr','Li':'lit','Be':'beril','B':'bor','C':'carbon','N':'nitr',
+ 'Na':'sod','Mg':'magnes','Al':'alumin','Si':'silic','P':'fosfor','S':'sulfur',
+ 'Cl':'clor','K':'potas','Ca':'calc','Sc':'escand','Ti':'titan','V':'vanad',
+ 'Cr':'crom','Mn':'mangan','Fe':'ferr','Co':'cobalt','Ni':'niquel','Cu':'cupr',
+ 'Zn':'cinc','Ga':'gal','Ge':'german','As':'arsen','Se':'selen','Br':'brom',
+ 'Rb':'rubid','Sr':'estronc','Y':'itr','Zr':'circon','Nb':'niob','Mo':'molibd',
+ 'Tc':'tecnec','Ru':'ruten','Rh':'rod','Pd':'palad','Ag':'argent','Cd':'cadm',
+ 'In':'ind','Sn':'estan','Sb':'antimon','Te':'telur','I':'yod','Cs':'ces',
+ 'Ba':'bar','La':'lantan','Ce':'cer','Pr':'praseodim','Nd':'neodim','Sm':'samar',
+ 'Eu':'europ','Gd':'gadolin','Tb':'terb','Dy':'dispros','Ho':'holm','Er':'erb',
+ 'Tm':'tul','Yb':'iterb','Lu':'lutec','Hf':'hafn','Ta':'tantal','W':'wolfram',
+ 'Re':'ren','Os':'osm','Ir':'irid','Pt':'platin','Au':'aur','Hg':'mercur',
+ 'Tl':'tal','Pb':'plumb','Bi':'bismut','Po':'polon','Fr':'franc','Ra':'rad',
+ 'Ac':'actin','Th':'tor','Pa':'protactin','U':'uran','Np':'neptun','Pu':'pluton',
+ 'Am':'americ','Cm':'cur','Bk':'berkel','Cf':'californ','Es':'einsten',
+ 'Fm':'ferm','Md':'mendelev','No':'nobel','Lr':'laurenc'}
+
+NONMETALS=set(('B C N Si P S Cl As Se Br Te I').split())
+SPECIAL_HYDRIDES={'B':'borano','C':'metano','N':'amoniaco','Si':'silano',
+                  'P':'fosfina','As':'arsina','Sb':'estibina'}
+
+def trad_adj(sym,val):
+    states=OX_STATES.get(sym,())
+    root=TR_ROOT.get(sym,'')
+    if not states or val not in states or not root: return ''
+    if len(states)==1: return root+'ico'
+    i=states.index(val); n=len(states)
+    if n==2: return root+('oso' if i==0 else 'ico')
+    if n==3: return ('hipo'+root+'oso' if i==0 else root+'oso' if i==1 else root+'ico')
+    # En series de cuatro o mas, la tradicional escolar solo fija con claridad
+    # los dos extremos y los estados intermedios bajo/alto.
+    if i==0: return 'hipo'+root+'oso'
+    if i==1: return root+'oso'
+    if i==n-2: return root+'ico'
+    if i==n-1: return 'per'+root+'ico'
+    return ''
+
+def traditional(sym,val,kind,name='',anion=''):
+    if kind=='hidracido': return anion
+    if kind=='hidruro' and sym in SPECIAL_HYDRIDES: return SPECIAL_HYDRIDES[sym]
+    if kind=='oxido' and sym=='H': return 'agua'
+    adj=trad_adj(sym,val)
+    if not adj:
+        return 'Sin nombre tradicional estandar; use Stock: '+name+' ('+roman(val)+')'
+    if kind=='oxido': return ('anhidrido ' if sym in NONMETALS else 'oxido ')+adj
+    if kind=='peroxido': return 'peroxido '+adj
+    if kind=='hidruro': return 'hidruro '+adj
+    if kind=='hidroxido': return 'hidroxido '+adj
+    if kind=='binario': return anion+' '+adj
+    if kind=='oxosal': return anion+' '+adj
+    return adj
 
 RADICALS={
   1:('OH',-1,'hidroxido',{'O':1,'H':1}), 2:('NO3',-1,'nitrato',{'N':1,'O':3}),
@@ -215,15 +280,17 @@ def group_compound(z,val,rid,mode):
         stock=acid_names.get(rf,'acido de '+rname)
         systematic='hidrogeno + '+rname
         reason='Comienza con H y contiene un oxoanion.'
+        tradname=stock
     else:
         kind='HIDROXIDO' if rf=='OH' else ('SAL DE AMONIO' if rf=='NH4' else 'OXOSAL')
         stock=rname+' de '+name1+(' ('+roman(abs(val))+')' if s1!='H' else '')
         systematic=(prefix(ng)+rname+' de '+prefix(n1)+name1.lower()).replace('monohidroxido','hidroxido')
         reason=('Contiene el grupo OH unido a un cation.' if rf=='OH' else 'Contiene el ion amonio.' if rf=='NH4' else 'Combina un cation con un oxoanion.')
+        tradname=traditional(s1,abs(val),'hidroxido' if rf=='OH' else 'oxosal',name1,rname)
     st_var('QSYM1',s1); st_var('QSYM2',rf); st_var('QGROUP',rf); st_var('QFORM',formula)
     sv('QSUB1',n1); sv('QSUB2',ng); sv('QV1',val); sv('QV2',rv)
     atoms=counts_text([({s1:1},n1),(rcomp,ng)])
-    return ('1. INTERPRETACION\nFormula: '+formula+'\nFuncion: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+rf+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACION\nMCD = '+str(g)+'\nSubindices: '+str(n1)+' y '+str(ng)+('\nEl parentesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACION\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nAtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+'\nTradicional: '+stock)
+    return ('1. INTERPRETACION\nFormula: '+formula+'\nFuncion: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+rf+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACION\nMCD = '+str(g)+'\nSubindices: '+str(n1)+' y '+str(ng)+('\nEl parentesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACION\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nAtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+'\nTradicional: '+tradname)
 
 def formulate(z1,z2,v1,v2):
     z1=int(z1); z2=int(z2); v1=int(v1); v2=int(v2)
@@ -236,6 +303,7 @@ def formulate(z1,z2,v1,v2):
     names=hp.eval('TP_NOMBRES()')
     name1=str(names[z1-1]); name2=str(names[z2-1])
     formula=s1+('' if n1==1 else str(n1))+s2+('' if n2==1 else str(n2))
+    anion=''
     if s2=='O' and v2==-1:
         kind='peroxido'
         stock='peroxido de '+name1
@@ -255,6 +323,7 @@ def formulate(z1,z2,v1,v2):
               'Te':'acido telurhidrico'}
         stock=acid.get(s2,'compuesto binario de hidrogeno y '+name2.lower())
         systematic=prefix(n1)+'hidrogeno de '+prefix(n2)+name2.lower()
+        anion=stock
     else:
         kind='binario'
         endings={'F':'fluoruro','Cl':'cloruro','Br':'bromuro','I':'yoduro',
@@ -263,8 +332,7 @@ def formulate(z1,z2,v1,v2):
         anion=endings.get(s2,name2.lower()+'uro')
         stock=anion+' de '+name1+' ('+roman(abs(v1))+')'
         systematic=prefix(n2)+anion+' de '+prefix(n1)+name1.lower()
-    trad=traditional(s1,abs(v1),kind)
-    if not trad: trad='No definida para esta combinacion en el nivel tradicional.'
+    trad=traditional(s1,abs(v1),kind,name1,anion)
     sv('QSUB1',n1); sv('QSUB2',n2); sv('QV1',v1); sv('QV2',v2)
     st_var('QSYM1',s1); st_var('QSYM2',s2)
     check=str(n1)+'('+str(v1)+') + '+str(n2)+'('+str(v2)+') = 0'
