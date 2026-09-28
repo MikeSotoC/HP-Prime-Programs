@@ -112,9 +112,26 @@ def electron_config(z):
         si=next((i for i,x in enumerate(filled) if x[0]==sn and x[1]==sl),None)
         if di is not None and si is not None and filled[si][2]>0:
             filled[di][2]+=1; filled[si][2]-=1
-    cfg=' '.join(str(n)+l+str(e) for n,l,e in filled if e)
+    active=[x for x in filled if x[2]]
+    cfg=' '.join(str(n)+l+str(e) for n,l,e in active)
     period=max(x[0] for x in filled if x[2])
-    return SYMBOLS[int(z)-1],cfg,period
+    last_n,last_l,last_e=active[-1]
+    if last_l=='s': group=last_e
+    elif last_l=='p': group=12+last_e
+    elif last_l=='d': group=2+last_e
+    else: group=3
+    if z==2: group=18
+    valence=sum(x[2] for x in active if x[0]==period)
+    if 57<=z<=71: family='Lantanido'; block='f'
+    elif 89<=z<=103: family='Actinido'; block='f'
+    elif group==1: family='Alcalino' if z!=1 else 'No metal'
+    elif group==2: family='Alcalinoterreo'
+    elif group==17: family='Halogeno'
+    elif group==18: family='Gas noble'
+    elif 3<=group<=12: family='Metal de transicion'
+    else: family='Familia del grupo '+str(group)
+    if not (57<=z<=71 or 89<=z<=103): block=last_l
+    return SYMBOLS[int(z)-1],cfg,period,group,valence,family,block
 
 try:
     op=int(gv('QOP')); a=float(gv('QA')); b=float(gv('QB'))
@@ -131,7 +148,8 @@ try:
     elif op==401:
         p,n,e=atom(a,b,c); ok(p,n,e,'Protones = '+str(p)+'\nNeutrones = '+str(n)+'\nElectrones = '+str(e))
     elif op==402:
-        sym,cfg,period=electron_config(a); ok(a,period,0,sym+'  Z='+str(int(a))+'\nConfiguracion:\n'+cfg+'\nPeriodo = '+str(period))
+        sym,cfg,period,group,valence,family,block=electron_config(a)
+        ok(a,period,group,sym+'  Z='+str(int(a))+'\nConfiguracion:\n'+cfg+'\nGrupo = '+str(group)+'   Periodo = '+str(period)+'\nValencia = '+str(valence)+'\nFamilia = '+family+'\nBloque = '+block)
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -151,13 +169,16 @@ QH_UNIDAD2()
 BEGIN
  LOCAL o:=1,z:=17;
  REPEAT
-  CHOOSE(o,"TABLA PERIODICA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO");
+  CHOOSE(o,"TABLA PERIODICA","TABLA INTERACTIVA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO");
   IF o==1 THEN
+   TP_TABLA();
+  END;
+  IF o==2 THEN
    IF INPUT(z,"TABLA PERIODICA","Numero atomico Z") THEN
     QH_RUN(402,z,0,0,0,"ELEMENTO");
    END;
   END;
-  IF o==2 THEN
+  IF o==3 THEN
    IF INPUT(z,"ANALISIS ELECTRONICO","Numero atomico Z") THEN
     QH_RUN(402,z,0,0,0,"ANALISIS ELECTRONICO");
    END;
@@ -188,7 +209,7 @@ BEGIN
    linea:=resto; resto:="";
   ELSE
    IF pos==1 THEN linea:=""; ELSE linea:=LEFT(resto,pos-1); END;
-   resto:=MID(resto,pos+1);
+   resto:=MID(resto,pos+1,SIZE(resto)-pos);
   END;
   TEXTOUT_P(linea,12,y,1,#102A43,296,#E8EEF2);
   y:=y+19;
@@ -212,6 +233,288 @@ BEGIN
   IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_RUN(401,a,b,c,0,"ATOMO / ION"); END; END;
   IF o==10 THEN a:=17; IF INPUT(a,"CONFIGURACION","Numero atomico Z") THEN QH_RUN(402,a,0,0,0,"CONFIGURACION"); END; END;
  UNTIL o==0;
+END;
+
+TP_PAGINA(titulo,lineas)
+BEGIN
+ LOCAL inicio:=1;
+ LOCAL tecla:=0;
+ LOCAL j;
+ LOCAL total:=SIZE(lineas);
+ REPEAT
+  RECT_P(RGB(226,231,232));
+  RECT_P(0,0,319,29,RGB(33,39,40),RGB(33,39,40));
+  TEXTOUT_P(titulo,7,6,2,RGB(255,255,255));
+  FOR j FROM 0 TO 9 DO
+   IF inicio+j<=total THEN
+    TEXTOUT_P(lineas(inicio+j),7,34+j*18,1,RGB(20,28,38));
+   END;
+  END;
+  RECT_P(0,216,105,239,RGB(179,38,30),RGB(179,38,30));
+  RECT_P(107,216,211,239,RGB(33,123,156),RGB(33,123,156));
+  RECT_P(213,216,319,239,RGB(33,123,156),RGB(33,123,156));
+  TEXTOUT_P("< VOLVER",20,222,1,RGB(255,255,255));
+  TEXTOUT_P("ARRIBA",130,222,1,RGB(255,255,255));
+  TEXTOUT_P("ABAJO",238,222,1,RGB(255,255,255));
+  tecla:=TP_ENTRADA_UI();
+  IF tecla==12 OR tecla==8 THEN inicio:=MIN(total, inicio+10); END;
+  IF tecla==2 OR tecla==7 THEN inicio:=MAX(1,inicio-10); END;
+ UNTIL tecla==4 OR tecla==19;
+END;
+
+TP_ENTRADA_UI()
+BEGIN
+ LOCAL teclaLeida:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ REPEAT
+  teclaLeida:=GETKEY;
+ UNTIL teclaLeida==-1;
+ MOUSE(0);
+ MOUSE(1);
+ WAIT(0.16);
+ REPEAT
+  teclaLeida:=GETKEY;
+  IF teclaLeida<>-1 THEN RETURN teclaLeida; END;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX>=0 AND toqueY>=216 THEN
+   IF toqueX<=105 THEN RETURN 4; END;
+   IF toqueX<=211 THEN RETURN 2; END;
+   RETURN 12;
+  END;
+  WAIT(0.05);
+ UNTIL 0;
+END;
+
+TP_LIMPIAR_BUFFER()
+BEGIN
+ LOCAL teclaPendiente:=0;
+ REPEAT
+  teclaPendiente:=GETKEY;
+ UNTIL teclaPendiente==-1;
+ MOUSE(0);
+ MOUSE(1);
+ WAIT(0.15);
+END;
+
+TP_SIMBOLOS()
+BEGIN
+ RETURN {"H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"};
+END;
+
+TP_NOMBRES()
+BEGIN
+ RETURN {"Hidrogeno","Helio","Litio","Berilio","Boro","Carbono","Nitrogeno","Oxigeno","Fluor","Neon","Sodio","Magnesio","Aluminio","Silicio","Fosforo","Azufre","Cloro","Argon","Potasio","Calcio","Escandio","Titanio","Vanadio","Cromo","Manganeso","Hierro","Cobalto","Niquel","Cobre","Zinc","Galio","Germanio","Arsenico","Selenio","Bromo","Kripton","Rubidio","Estroncio","Itrio","Circonio","Niobio","Molibdeno","Tecnecio","Rutenio","Rodio","Paladio","Plata","Cadmio","Indio","Estano","Antimonio","Telurio","Yodo","Xenon","Cesio","Bario","Lantano","Cerio","Praseodimio","Neodimio","Prometio","Samario","Europio","Gadolinio","Terbio","Disprosio","Holmio","Erbio","Tulio","Iterbio","Lutecio","Hafnio","Tantalio","Wolframio","Renio","Osmio","Iridio","Platino","Oro","Mercurio","Talio","Plomo","Bismuto","Polonio","Astato","Radon","Francio","Radio","Actinio","Torio","Protactinio","Uranio","Neptunio","Plutonio","Americio","Curio","Berkelio","Californio","Einstenio","Fermio","Mendelevio","Nobelio","Lawrencio","Rutherfordio","Dubnio","Seaborgio","Bohrio","Hassio","Meitnerio","Darmstadtio","Roentgenio","Copernicio","Nihonio","Flerovio","Moscovio","Livermorio","Teneso","Oganeson"};
+END;
+
+TP_MASAS()
+BEGIN
+ RETURN {1.008,4.0026,6.94,9.0122,10.81,12.011,14.007,15.999,18.998,20.180,22.990,24.305,26.982,28.085,30.974,32.06,35.45,39.948,39.098,40.078,44.956,47.867,50.942,51.996,54.938,55.845,58.933,58.693,63.546,65.38,69.723,72.630,74.922,78.971,79.904,83.798,85.468,87.62,88.906,91.224,92.906,95.95,98,101.07,102.91,106.42,107.87,112.41,114.82,118.71,121.76,127.60,126.90,131.29,132.91,137.33,138.91,140.12,140.91,144.24,145,150.36,151.96,157.25,158.93,162.50,164.93,167.26,168.93,173.05,174.97,178.49,180.95,183.84,186.21,190.23,192.22,195.08,196.97,200.59,204.38,207.2,208.98,209,210,222,223,226,227,232.04,231.04,238.03,237,244,243,247,247,251,252,257,258,259,266,267,268,269,270,269,278,281,282,285,286,289,290,293,294,294};
+END;
+
+TP_GRUPOS()
+BEGIN
+ RETURN {1,18,1,2,13,14,15,16,17,18,1,2,13,14,15,16,17,18,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18};
+END;
+
+TP_PERIODOS()
+BEGIN
+ RETURN {1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7};
+END;
+
+TP_CLASE(z)
+BEGIN
+ IF z==1 THEN RETURN "No metal"; END;
+ IF z==5 OR z==14 OR z==32 OR z==33 OR z==51 OR z==52 OR z==84 THEN RETURN "Metaloide"; END;
+ IF z==6 OR z==7 OR z==8 OR z==9 OR z==15 OR z==16 OR z==17 OR z==34 OR z==35 OR z==53 OR z==85 OR z==117 THEN RETURN "No metal"; END;
+ IF z==2 OR z==10 OR z==18 OR z==36 OR z==54 OR z==86 OR z==118 THEN RETURN "Gas noble"; END;
+ RETURN "Metal";
+END;
+
+TP_FAMILIA(z,g)
+BEGIN
+ IF z>=57 AND z<=71 THEN RETURN "Lantanido"; END;
+ IF z>=89 AND z<=103 THEN RETURN "Actinido"; END;
+ IF g==1 THEN RETURN IFTE(z==1,"No metal","Alcalino"); END;
+ IF g==2 THEN RETURN "Alcalinoterreo"; END;
+ IF g>=3 AND g<=12 THEN RETURN "Metal de transicion"; END;
+ IF g==13 THEN RETURN "Familia del boro"; END;
+ IF g==14 THEN RETURN "Familia del carbono"; END;
+ IF g==15 THEN RETURN "Nitrogenoideos"; END;
+ IF g==16 THEN RETURN "Calcogenos"; END;
+ IF g==17 THEN RETURN "Halogenos"; END;
+ IF g==18 THEN RETURN "Gases nobles"; END;
+ RETURN "Bloque f";
+END;
+
+TP_BLOQUE(z,g)
+BEGIN
+ IF z>=57 AND z<=71 OR z>=89 AND z<=103 THEN RETURN "f"; END;
+ IF g<=2 THEN RETURN "s"; END;
+ IF g>=13 THEN RETURN "p"; END;
+ RETURN "d";
+END;
+
+// listaGrupos y listaPeriodos se reciben como parametro (ya calculados una
+// sola vez por el llamador) en vez de recalcularse en cada llamada.
+TP_POS(z,listaGrupos,listaPeriodos)
+BEGIN
+ IF z>=58 AND z<=71 THEN RETURN {z-54,8}; END;
+ IF z>=90 AND z<=103 THEN RETURN {z-86,9}; END;
+ RETURN {listaGrupos(z),listaPeriodos(z)};
+END;
+
+// Paleta de colores por categoria quimica. Se apoya en TP_CLASE (metal/no
+// metal/metaloide/gas noble) y en TP_FAMILIA (grupo especifico) para dar
+// mas variedad que solo 3-4 tonos.
+TP_COLOR(z,listaGrupos)
+BEGIN
+ LOCAL clase:=TP_CLASE(z);
+ LOCAL familia:=TP_FAMILIA(z,listaGrupos(z));
+ IF clase=="Gas noble" THEN RETURN RGB(154,111,190); END;
+ IF clase=="Metaloide" THEN RETURN RGB(242,179,64); END;
+ IF familia=="Lantanido" THEN RETURN RGB(65,164,184); END;
+ IF familia=="Actinido" THEN RETURN RGB(100,90,180); END;
+ IF familia=="Halogenos" THEN RETURN RGB(70,180,170); END;
+ IF clase=="No metal" THEN RETURN RGB(72,169,108); END;
+ IF familia=="Alcalino" THEN RETURN RGB(219,80,80); END;
+ IF familia=="Alcalinoterreo" THEN RETURN RGB(230,150,60); END;
+ IF familia=="Metal de transicion" THEN RETURN RGB(70,130,190); END;
+ RETURN RGB(150,160,170);
+END;
+
+EXPORT TP_TABLA()
+BEGIN
+ LOCAL listaSimbolos:=TP_SIMBOLOS();
+ LOCAL listaNombres:=TP_NOMBRES();
+ LOCAL listaGrupos:=TP_GRUPOS();
+ LOCAL listaPeriodos:=TP_PERIODOS();
+ LOCAL posicion;
+ LOCAL coordX;
+ LOCAL coordY;
+ LOCAL numeroAtomico;
+ LOCAL seleccionado:=1;
+ LOCAL nuevoSeleccionado:=1;
+ LOCAL teclaLeida:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ LOCAL toqueActivo:=0;
+ LOCAL salir:=0;
+ TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  teclaLeida:=GETKEY;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX<0 THEN toqueActivo:=0; END;
+  IF teclaLeida==4 OR teclaLeida==19 THEN salir:=1; END;
+  nuevoSeleccionado:=seleccionado;
+  IF teclaLeida==7 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,7,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==8 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,8,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==2 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,2,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==12 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,12,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==30 THEN
+   TP_FICHA(seleccionado);
+   TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+   TP_LIMPIAR_BUFFER();
+  END;
+  IF toqueX>=0 AND toqueActivo==0 THEN
+   toqueActivo:=1;
+   IF toqueY>=216 THEN
+    IF toqueX<=104 THEN salir:=1; END;
+    IF toqueX>=211 THEN
+     TP_FICHA(seleccionado);
+     TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+     TP_LIMPIAR_BUFFER();
+    END;
+   END;
+   IF toqueY>=25 AND toqueY<=205 THEN
+    FOR numeroAtomico FROM 1 TO 118 DO
+     posicion:=TP_POS(numeroAtomico,listaGrupos,listaPeriodos);
+     coordX:=2+(posicion(1)-1)*17;
+     coordY:=25+(posicion(2)-1)*20;
+     IF toqueX>=coordX AND toqueX<=coordX+15 AND toqueY>=coordY AND toqueY<=coordY+17 THEN nuevoSeleccionado:=numeroAtomico; END;
+    END;
+   END;
+  END;
+  IF nuevoSeleccionado<>seleccionado THEN
+   TP_DIBUJAR_CELDA(seleccionado,0,listaSimbolos,listaGrupos,listaPeriodos);
+   seleccionado:=nuevoSeleccionado;
+   TP_DIBUJAR_CELDA(seleccionado,1,listaSimbolos,listaGrupos,listaPeriodos);
+   TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres);
+  END;
+  WAIT(0.04);
+ UNTIL salir==1;
+END;
+
+TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL numeroAtomico;
+ RECT_P(RGB(226,231,232));
+ TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres);
+ FOR numeroAtomico FROM 1 TO 118 DO
+  TP_DIBUJAR_CELDA(numeroAtomico,numeroAtomico==seleccionado,listaSimbolos,listaGrupos,listaPeriodos);
+ END;
+ RECT_P(0,216,104,239,RGB(179,38,30),RGB(179,38,30));
+ RECT_P(106,216,209,239,RGB(33,123,156),RGB(33,123,156));
+ RECT_P(211,216,319,239,RGB(46,125,91),RGB(46,125,91));
+ TEXTOUT_P("< VOLVER",18,222,1,RGB(255,255,255));
+ TEXTOUT_P("FLECHAS",128,222,1,RGB(255,255,255));
+ TEXTOUT_P("VER / ENTER",220,222,1,RGB(255,255,255));
+END;
+
+TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres)
+BEGIN
+ RECT_P(0,0,319,22,RGB(33,39,40),RGB(33,39,40));
+ TEXTOUT_P("ELIJA: "+STRING(seleccionado)+" "+listaSimbolos(seleccionado)+" "+listaNombres(seleccionado),5,4,1,RGB(255,255,255));
+END;
+
+TP_DIBUJAR_CELDA(numeroAtomico,marcada,listaSimbolos,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL posicion:=TP_POS(numeroAtomico,listaGrupos,listaPeriodos);
+ LOCAL coordX:=2+(posicion(1)-1)*17;
+ LOCAL coordY:=25+(posicion(2)-1)*20;
+ LOCAL colorCelda:=TP_COLOR(numeroAtomico,listaGrupos);
+ RECT_P(coordX-1,coordY-1,coordX+16,coordY+18,RGB(226,231,232),RGB(226,231,232));
+ RECT_P(coordX,coordY,coordX+15,coordY+17,colorCelda,colorCelda);
+ IF marcada THEN RECT_P(coordX-1,coordY-1,coordX+16,coordY+18,RGB(0,0,0)); END;
+ TEXTOUT_P(listaSimbolos(numeroAtomico),coordX+1,coordY+4,0,RGB(255,255,255));
+END;
+
+TP_MOVER(actual,direccion,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL posicionActual:=TP_POS(actual,listaGrupos,listaPeriodos);
+ LOCAL posicionCandidata;
+ LOCAL candidato;
+ LOCAL mejor:=actual;
+ LOCAL puntaje:=999;
+ LOCAL nuevoPuntaje;
+ FOR candidato FROM 1 TO 118 DO
+  posicionCandidata:=TP_POS(candidato,listaGrupos,listaPeriodos);
+  IF direccion==7 AND posicionCandidata(2)==posicionActual(2) AND posicionCandidata(1)<posicionActual(1) THEN nuevoPuntaje:=posicionActual(1)-posicionCandidata(1); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==8 AND posicionCandidata(2)==posicionActual(2) AND posicionCandidata(1)>posicionActual(1) THEN nuevoPuntaje:=posicionCandidata(1)-posicionActual(1); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==2 AND posicionCandidata(2)<posicionActual(2) THEN nuevoPuntaje:=ABS(posicionCandidata(1)-posicionActual(1))*3+posicionActual(2)-posicionCandidata(2); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==12 AND posicionCandidata(2)>posicionActual(2) THEN nuevoPuntaje:=ABS(posicionCandidata(1)-posicionActual(1))*3+posicionCandidata(2)-posicionActual(2); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+ END;
+ RETURN mejor;
+END;
+
+EXPORT TP_FICHA(numeroAtomico)
+BEGIN
+ LOCAL listaSimbolos:=TP_SIMBOLOS();
+ LOCAL listaNombres:=TP_NOMBRES();
+ LOCAL listaMasas:=TP_MASAS();
+ LOCAL listaGrupos:=TP_GRUPOS();
+ LOCAL listaPeriodos:=TP_PERIODOS();
+ TP_PAGINA(listaSimbolos(numeroAtomico)+" - "+listaNombres(numeroAtomico),{
+  "Z = "+STRING(numeroAtomico)+"   masa = "+STRING(listaMasas(numeroAtomico))+" u",
+  "Periodo = "+STRING(listaPeriodos(numeroAtomico)),
+  IFTE(listaGrupos(numeroAtomico)==0,"Serie interna","Grupo = "+STRING(listaGrupos(numeroAtomico))),
+  "Tipo = "+TP_CLASE(numeroAtomico),
+  "Familia = "+TP_FAMILIA(numeroAtomico,listaGrupos(numeroAtomico)),
+  "Bloque = "+TP_BLOQUE(numeroAtomico,listaGrupos(numeroAtomico)),
+  "Atomo neutro: p = e = Z = "+STRING(numeroAtomico)});
 END;
 
 START()
