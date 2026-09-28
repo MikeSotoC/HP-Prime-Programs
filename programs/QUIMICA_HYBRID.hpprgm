@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.6.3 - HP Prime G1/G2
+// QUIMICA HYBRID 2.6.4 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -941,13 +941,21 @@ BEGIN
    TP_TABLA();
   END;
   IF o==2 THEN
-   IF INPUT(z,"TABLA PERIODICA","Numero atomico Z") THEN
-    QH_EJECUTAR(402,z,0,0,0,"ELEMENTO");
+   IF INPUT({z},"TABLA PERIODICA",{"Numero atomico Z:"}) THEN
+    IF z>=1 AND z<=118 AND IP(z)==z THEN
+     QH_EJECUTAR(402,z,0,0,0,"ELEMENTO");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
    END;
   END;
   IF o==3 THEN
-   IF INPUT(z,"ANALISIS ELECTRONICO","Numero atomico Z") THEN
-    QH_EJECUTAR(402,z,0,0,0,"ANALISIS ELECTRONICO");
+   IF INPUT({z},"ANALISIS ELECTRONICO",{"Numero atomico Z:"}) THEN
+    IF z>=1 AND z<=118 AND IP(z)==z THEN
+     QH_EJECUTAR(402,z,0,0,0,"ANALISIS ELECTRONICO");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
    END;
   END;
  UNTIL o==0;
@@ -1016,7 +1024,16 @@ BEGIN
   IF o==5 THEN a:=1;b:=2; IF INPUT({a,b},"TRANSICION",{"n inicial","n final"}) THEN QH_EJECUTAR(202,a,b,0,0,"TRANSICION"); END; END;
   IF o>=6 AND o<=8 THEN a:=1; IF INPUT(a,"E=mc2","Dato conocido") THEN QH_EJECUTAR(295+o,a,0,0,0,"EINSTEIN"); END; END;
   IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_EJECUTAR(401,a,b,c,0,"ATOMO / ION"); END; END;
-  IF o==10 THEN a:=17; IF INPUT(a,"CONFIGURACION","Numero atomico Z") THEN QH_EJECUTAR(402,a,0,0,0,"CONFIGURACION"); END; END;
+  IF o==10 THEN
+   a:=17;
+   IF INPUT({a},"CONFIGURACION ELECTRONICA",{"Numero atomico Z:"}) THEN
+    IF a>=1 AND a<=118 AND IP(a)==a THEN
+     QH_EJECUTAR(402,a,0,0,0,"CONFIGURACION");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
+   END;
+  END;
  UNTIL o==0;
 END;
 
