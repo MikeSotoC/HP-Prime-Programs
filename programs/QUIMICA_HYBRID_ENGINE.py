@@ -1,6 +1,6 @@
 # Motor MicroPython de QUIMICA_HYBRID 2.8.0
 # Pegar este contenido en la pestaña Python si fuera necesario.
-import hpprime as hp
+from hpprime import *
 
 # Valores didacticos tomados del HPP de referencia del usuario.
 H=6.63e-34
@@ -16,7 +16,7 @@ SYMBOLS=('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co
          'Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og').split()
 
 def gv(name):
-    return hp.eval(name)
+    return eval(name)
 
 def load_constants():
     global H,C,EV,ERG,A0,V0,RY
@@ -34,7 +34,7 @@ load_constants()
 def sv(name,value):
     # El parser HOME de algunos firmwares falla con exponentes e+NN.
     num=repr(float(value)).replace('e+','e')
-    hp.eval(name+':='+num)
+    eval(name+':='+num)
 
 def st(text):
     # Construye los saltos con CHAR(10), compatible con PPL.
@@ -43,15 +43,15 @@ def st(text):
     for part in parts:
         part=part.replace('\\','\\\\').replace('"','\\"')
         quoted.append('"'+part+'"')
-    hp.eval('QTEXT:='+'+CHAR(10)+'.join(quoted))
+    eval('QTEXT:='+'+CHAR(10)+'.join(quoted))
 
 def ok(a=0,b=0,c=0,text=''):
-    hp.eval('QERR:=0')
+    eval('QERR:=0')
     sv('QOUT1',a); sv('QOUT2',b); sv('QOUT3',c)
     st(text)
 
 def fail(text):
-    hp.eval('QERR:=1')
+    eval('QERR:=1')
     st(text)
 
 def sci(x):
@@ -485,7 +485,7 @@ def group_compound(z,val,rid,mode):
     z=int(z); val=int(val); rid=int(rid); mode=int(mode)
     if rid not in RADICALS: raise ValueError('Radical no reconocido.')
     rf,rv,rname,rcomp=RADICALS[rid]
-    names=hp.eval('TP_NOMBRES()')
+    names=eval('TP_NOMBRES()')
     if mode==2:
         if rv>=0 or rf=='OH' or rid in (34,35,36,38,39,40,43,44,52,54,55):
             raise ValueError('Ese ion no se usa como oxoacido directo en este constructor.')
@@ -537,7 +537,7 @@ def formulate(z1,z2,v1,v2):
         raise ValueError('Las valencias deben tener signos opuestos.')
     g=gcd(v1,v2); n1=abs(v2)//g; n2=abs(v1)//g
     s1=SYMBOLS[z1-1]; s2=SYMBOLS[z2-1]
-    names=hp.eval('TP_NOMBRES()')
+    names=eval('TP_NOMBRES()')
     name1=str(names[z1-1]); name2=str(names[z2-1])
     formula=s1+('' if n1==1 else str(n1))+s2+('' if n2==1 else str(n2))
     anion=''
@@ -578,7 +578,7 @@ def formulate(z1,z2,v1,v2):
 
 def st_var(name,text):
     text=str(text).replace('\\','\\\\').replace('"','\\"')
-    hp.eval(name+':="'+text+'"')
+    eval(name+':="'+text+'"')
 
 try:
     op=int(gv('QOP')); a=float(gv('QA')); b=float(gv('QB'))
