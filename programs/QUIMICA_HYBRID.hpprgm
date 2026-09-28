@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.3 - HP Prime G1/G2
+// QUIMICA HYBRID 2.4 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -32,6 +32,7 @@ QPROD:="";
 QRSHOW:="";
 QPSHOW:="";
 QLASTSHOW:="";
+CFG_PROFILE:=1;
 CFG_H:=6.63E-34;
 CFG_C:=3E8;
 CFG_EV:=1.6E-19;
@@ -704,22 +705,19 @@ END;
 
 QH_CONFIG()
 BEGIN
- LOCAL op:=1,h,c,ev,erg,a0,v0,ry,ok;
+ LOCAL op:=1;
  REPEAT
-  CHOOSE(op,"CONSTANTES FISICAS","VER VALORES ACTIVOS","EDITAR CONSTANTES","RESTAURAR VALORES DEL HPP");
+  CHOOSE(op,"CONSTANTES FISICAS","VER PERFIL ACTIVO","USAR VALORES ACADEMICOS","USAR VALORES EXACTOS");
   IF op==1 THEN
-   QH_RESULT("CONSTANTES ACTIVAS","h = "+STRING(CFG_H)+" J·s"+CHAR(10)+"c = "+STRING(CFG_C)+" m·s⁻¹"+CHAR(10)+"1 eV = "+STRING(CFG_EV)+" J"+CHAR(10)+"1 J = "+STRING(CFG_ERG)+" erg"+CHAR(10)+"a₀ = "+STRING(CFG_A0)+" Å"+CHAR(10)+"v₀ = "+STRING(CFG_V0)+" cm·s⁻¹"+CHAR(10)+"R = "+STRING(CFG_RY)+" eV");
+   QH_RESULT("CONSTANTES ACTIVAS","Perfil: "+IFTE(CFG_PROFILE==1,"ACADEMICO (HPP)","EXACTO / ALTA PRECISION")+CHAR(10)+CHAR(10)+"h = "+STRING(CFG_H)+" J·s"+CHAR(10)+"c = "+STRING(CFG_C)+" m·s⁻¹"+CHAR(10)+"1 eV = "+STRING(CFG_EV)+" J"+CHAR(10)+"1 J = "+STRING(CFG_ERG)+" erg"+CHAR(10)+"a₀ = "+STRING(CFG_A0)+" Å"+CHAR(10)+"v₀ = "+STRING(CFG_V0)+" cm·s⁻¹"+CHAR(10)+"R = "+STRING(CFG_RY)+" eV");
   END;
   IF op==2 THEN
-   h:=CFG_H; c:=CFG_C; ev:=CFG_EV; erg:=CFG_ERG; a0:=CFG_A0; v0:=CFG_V0; ry:=CFG_RY;
-   ok:=INPUT({h,c,ev,erg,a0,v0,ry},"EDITAR CONSTANTES",{"h (J·s):","c (m/s):","eV en J:","erg por J:","a₀ (Å):","v₀ (cm/s):","R (eV):"},{"Planck","Luz","Conversión","Conversión","Bohr","Bohr","Rydberg"},{CFG_H,CFG_C,CFG_EV,CFG_ERG,CFG_A0,CFG_V0,CFG_RY});
-   IF ok THEN
-    IF h<=0 OR c<=0 OR ev<=0 OR erg<=0 OR a0<=0 OR v0<=0 OR ry<=0 THEN MSGBOX("Todas las constantes deben ser mayores que cero."); ELSE CFG_H:=h; CFG_C:=c; CFG_EV:=ev; CFG_ERG:=erg; CFG_A0:=a0; CFG_V0:=v0; CFG_RY:=ry; MSGBOX("Configuración guardada."); END;
-   END;
+   CFG_PROFILE:=1; CFG_H:=6.63E-34; CFG_C:=3E8; CFG_EV:=1.6E-19; CFG_ERG:=1E7; CFG_A0:=0.529; CFG_V0:=2.18E8; CFG_RY:=13.6;
+   MSGBOX("Perfil ACADEMICO activado. Usa los valores del HPP original.");
   END;
   IF op==3 THEN
-   CFG_H:=6.63E-34; CFG_C:=3E8; CFG_EV:=1.6E-19; CFG_ERG:=1E7; CFG_A0:=0.529; CFG_V0:=2.18E8; CFG_RY:=13.6;
-   MSGBOX("Se restauraron los valores del HPP original.");
+   CFG_PROFILE:=2; CFG_H:=6.62607015E-34; CFG_C:=299792458; CFG_EV:=1.602176634E-19; CFG_ERG:=1E7; CFG_A0:=0.529177210544; CFG_V0:=2.18769126364E8; CFG_RY:=13.60569312299;
+   MSGBOX("Perfil EXACTO / ALTA PRECISION activado.");
   END;
  UNTIL op==0;
 END;
