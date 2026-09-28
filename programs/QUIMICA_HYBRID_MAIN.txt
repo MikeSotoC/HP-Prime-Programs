@@ -84,7 +84,7 @@ BEGIN
   IF opcionRedox==4 THEN QH_VER_ECUACION(); END;
   IF opcionRedox==5 THEN
    IF SIZE(QREACT)==0 OR SIZE(QPROD)==0 THEN QH_AVISO("Complete ambos lados de la ecuacion."); ELSE
-    QRXN:=QREACT+">"+QPROD; QOP:=2001; QERR:=0; QTEXT:=""; PYTHON("import CHEM_ENGINE");
+    QRXN:=QREACT+">"+QPROD; QOP:=2001; QERR:=0; QTEXT:=""; CHEM_ENGINE();
     IF QERR THEN QH_AVISO(QTEXT); ELSE QH_RESULT("BALANCEO REDOX",QTEXT); END;
    END;
   END;
@@ -124,7 +124,7 @@ BEGIN
   IF opcionEspecie==2 THEN
    indiceRadical:=QH_RADICALES();
    IF indiceRadical>0 THEN
-    QRID:=indiceRadical; QOP:=1003; QERR:=0; QFORM:=""; PYTHON("import CHEM_ENGINE");
+    QRID:=indiceRadical; QOP:=1003; QERR:=0; QFORM:=""; CHEM_ENGINE();
     IF QERR THEN QH_AVISO(QTEXT); ELSE
      subindice:=1; IF INPUT(subindice,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
       IF subindice>=1 AND IP(subindice)==subindice THEN parteGrupo:=IFTE(subindice==1,QFORM,"("+QFORM+")"+STRING(subindice)); textoFormula:=textoFormula+parteGrupo; textoVisible:=textoVisible+parteGrupo; ELSE QH_AVISO("El subindice debe ser entero positivo."); END;
@@ -194,7 +194,7 @@ END;
 QH_RUN_NOM()
 BEGIN
  QOP:=1001; QERR:=0; QTEXT:=""; QSYM1:=""; QSYM2:="";
- PYTHON("import CHEM_ENGINE");
+ CHEM_ENGINE();
  IF QERR THEN
   QH_AVISO(QTEXT);
  ELSE
@@ -273,7 +273,7 @@ BEGIN
   IF NOT INPUT(v,"CARGA DEL ELEMENTO","Numero de oxidacion","Use signo + o -") THEN RETURN; END;
  END;
  QZ1:=z; QV1:=v; QRID:=r; QMODE:=tipo; QOP:=1002; QERR:=0; QTEXT:="";
- PYTHON("import CHEM_ENGINE");
+ CHEM_ENGINE();
  IF QERR THEN QH_AVISO(QTEXT); ELSE
   QH_DIBUJAR_GRUPO(QSYM1,QSUB1,QV1,QGROUP,QSUB2,QV2);
   QH_RESULT("INTERPRETACION QUIMICA",QTEXT);
@@ -325,7 +325,7 @@ BEGIN
  QD:=valorD;
  QERR:=0;
  QTEXT:="";
- PYTHON("import CHEM_ENGINE");
+ CHEM_ENGINE();
  IF QERR THEN
   QH_AVISO(QTEXT);
  ELSE
