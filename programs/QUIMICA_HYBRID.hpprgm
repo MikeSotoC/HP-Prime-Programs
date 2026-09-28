@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 1.4 - HP Prime G1/G2
+// QUIMICA HYBRID 2.0 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -26,6 +26,12 @@ QMODE:=0;
 QFORM:="";
 QGROUP:="";
 QREV:=0;
+QRXN:="";
+QREACT:="";
+QPROD:="";
+QRSHOW:="";
+QPSHOW:="";
+QLASTSHOW:="";
 
 #PYTHON CHEM_ENGINE
 import hpprime as hp
@@ -306,6 +312,152 @@ def counts_text(parts):
             total[s]+=n*mul
     return ', '.join(s+'='+str(total[s]) for s in order)
 
+def add_count(dst,src,mul=1):
+    for k,v in src.items(): dst[k]=dst.get(k,0)+v*mul
+
+def parse_formula(raw):
+    raw=str(raw); charge=0
+    if raw.endswith('}') and '{' in raw:
+        k=raw.rfind('{'); charge=int(raw[k+1:-1]); raw=raw[:k]
+    s=raw; stack=[{}]; i=0
+    while i<len(s):
+        ch=s[i]
+        if ch in '([': stack.append({}); i+=1
+        elif ch in ')]':
+            if len(stack)<2: raise ValueError('Parentesis incorrectos en '+raw)
+            group=stack.pop(); i+=1; j=i
+            while j<len(s) and s[j].isdigit(): j+=1
+            mul=int(s[i:j] or '1'); add_count(stack[-1],group,mul); i=j
+        elif ch.isupper():
+            j=i+1
+            while j<len(s) and s[j].islower(): j+=1
+            el=s[i:j]
+            if el not in SYMBOLS: raise ValueError('Simbolo desconocido: '+el)
+            k=j
+            while k<len(s) and s[k].isdigit(): k+=1
+            stack[-1][el]=stack[-1].get(el,0)+int(s[j:k] or '1'); i=k
+        else: raise ValueError('Caracter no valido en '+raw)
+    if len(stack)!=1: raise ValueError('Falta cerrar parentesis en '+raw)
+    return raw,stack[0],charge
+
+def fgcd(a,b): return gcd(a,b)
+def frac(n,d=1):
+    if d==0: raise ValueError('Division por cero.')
+    if d<0: n=-n; d=-d
+    g=fgcd(n,d); return (int(n)//g,int(d)//g)
+def fadd(a,b): return frac(a[0]*b[1]+b[0]*a[1],a[1]*b[1])
+def fneg(a): return (-a[0],a[1])
+def fmul(a,b): return frac(a[0]*b[0],a[1]*b[1])
+def fdiv(a,b): return frac(a[0]*b[1],a[1]*b[0])
+def lcm(a,b): return abs(a*b)//fgcd(a,b)
+
+def null_vector(mat):
+    if not mat or not mat[0]: raise ValueError('Ecuacion vacia.')
+    a=[[(int(x),1) for x in row] for row in mat]
+    rows=len(a); cols=len(a[0]); piv=[]; r=0
+    for c in range(cols):
+        p=next((i for i in range(r,rows) if a[i][c][0]),None)
+        if p is None: continue
+        a[r],a[p]=a[p],a[r]; lead=a[r][c]
+        a[r]=[fdiv(x,lead) for x in a[r]]
+        for i in range(rows):
+            if i!=r and a[i][c][0]:
+                q=a[i][c]; a[i]=[fadd(a[i][j],fneg(fmul(q,a[r][j]))) for j in range(cols)]
+        piv.append(c); r+=1
+        if r==rows: break
+    free=[j for j in range(cols) if j not in piv]
+    if not free: raise ValueError('Solo existe la solucion trivial; revise la ecuacion.')
+    x=[(0,1) for _ in range(cols)]
+    for j in free: x[j]=(1,1)
+    for i in range(len(piv)-1,-1,-1):
+        c=piv[i]; total=(0,1)
+        for j in free: total=fadd(total,fmul(a[i][j],x[j]))
+        x[c]=fneg(total)
+    den=1
+    for q in x: den=lcm(den,q[1])
+    out=[q[0]*(den//q[1]) for q in x]
+    if all(v<0 for v in out): out=[-v for v in out]
+    if any(v<=0 for v in out):
+        raise ValueError('La ecuacion es ambigua o requiere agregar especies del medio.')
+    g=out[0]
+    for v in out[1:]: g=fgcd(g,v)
+    return [v//g for v in out]
+
+def show_species(item):
+    f,c,q=item; return f if q==0 else '['+f+']^'+('+' if q>0 else '')+str(q)
+
+KNOWN_NAMES={'KNO2':'nitrito de potasio','K2O':'oxido de potasio / oxido potasico',
+ 'O2':'oxigeno molecular / dioxigeno','NO':'oxido de nitrogeno (II) / oxido nitrico',
+ 'Zn':'zinc','NO3':'nitrato','OH':'hidroxido','H2O':'agua','Zn(OH)4':'tetrahidroxozincato(II)',
+ 'NH3':'amoniaco','FeSO4':'sulfato de hierro(II) / sulfato ferroso',
+ 'H2SO4':'acido sulfurico','HNO3':'acido nitrico','Fe2(SO4)3':'sulfato de hierro(III) / sulfato ferrico',
+ 'HCl':'cloruro de hidrogeno / acido clorhidrico','Cl2':'cloro molecular'}
+
+def oxidation_states(item):
+    f,comp,q=item
+    if len(comp)==1: return {next(iter(comp)):0}
+    st={}; fixed={'H':1,'O':-2,'F':-1,'Li':1,'Na':1,'K':1,'Rb':1,'Cs':1,
+      'Be':2,'Mg':2,'Ca':2,'Sr':2,'Ba':2,'Al':3}
+    for e in comp:
+        if e in fixed: st[e]=fixed[e]
+    patterns=(('SO4','S',6),('SO3','S',4),('NO3','N',5),('NO2','N',3),
+      ('CO3','C',4),('PO4','P',5),('PO3','P',3),('ClO4','Cl',7),
+      ('ClO3','Cl',5),('ClO2','Cl',3),('ClO','Cl',1))
+    for pat,e,v in patterns:
+        if pat in f and e in comp: st[e]=v
+    unknown=[e for e in comp if e not in st]
+    if len(unknown)==1:
+        e=unknown[0]; known=sum(comp[k]*v for k,v in st.items())
+        num=q-known
+        if num%comp[e]==0: st[e]=num//comp[e]
+    return st
+
+def balance_equation(encoded):
+    if '>' not in encoded: raise ValueError('Falta la flecha de reaccion.')
+    ls,rs=encoded.split('>',1)
+    left=[parse_formula(x) for x in ls.split('|') if x]
+    right=[parse_formula(x) for x in rs.split('|') if x]
+    if not left or not right: raise ValueError('Complete reactivos y productos.')
+    elems=[]
+    for it in left+right:
+        for e in it[1]:
+            if e not in elems: elems.append(e)
+    mat=[]
+    for e in elems:
+        mat.append([x[1].get(e,0) for x in left]+[-x[1].get(e,0) for x in right])
+    mat.append([x[2] for x in left]+[-x[2] for x in right])
+    coef=null_vector(mat); nl=len(left)
+    def side(items,cs):
+        return ' + '.join(('' if c==1 else str(c))+show_species(x) for x,c in zip(items,cs))
+    original=side(left,[1]*nl)+' -> '+side(right,[1]*len(right))
+    final=side(left,coef[:nl])+' -> '+side(right,coef[nl:])
+    # Cambios de oxidacion que el motor puede deducir sin ambiguedad.
+    lvals={}; rvals={}
+    for x in left:
+        for e,v in oxidation_states(x).items(): lvals.setdefault(e,[]).append(v)
+    for x in right:
+        for e,v in oxidation_states(x).items(): rvals.setdefault(e,[]).append(v)
+    changes=[]
+    for e in elems:
+        av=sorted(set(lvals.get(e,[]))); bv=sorted(set(rvals.get(e,[])))
+        pairs=[]
+        for va in av:
+            for vb in bv:
+                if va!=vb and (va not in bv or vb not in av): pairs.append((va,vb))
+        for va,vb in pairs:
+            typ='OXIDACION' if vb>va else 'REDUCCION'
+            line=e+': '+str(va)+' -> '+str(vb)+'  '+typ+' ('+str(abs(vb-va))+' e- por atomo)'
+            if line not in changes: changes.append(line)
+    change_text='\n'.join(changes) if changes else 'No se detecto un cambio redox unico; se aplico balance algebraico.'
+    checks=[]
+    for e in elems:
+        a=sum(c*x[1].get(e,0) for x,c in zip(left,coef[:nl])); b=sum(c*x[1].get(e,0) for x,c in zip(right,coef[nl:]))
+        checks.append(e+': '+str(a)+' = '+str(b))
+    ql=sum(c*x[2] for x,c in zip(left,coef[:nl])); qr=sum(c*x[2] for x,c in zip(right,coef[nl:]))
+    nomen=[]
+    for x in left+right: nomen.append(show_species(x)+': '+KNOWN_NAMES.get(x[0],'nombre disponible en el modulo de nomenclatura'))
+    return ('ECUACION INGRESADA\n'+original+'\n\n1. ASIGNACION AUTOMATICA\nEl motor aplica H=+1, O=-2, elementos libres=0 y la suma igual a la carga.\n\n2. OXIDACION Y REDUCCION\n'+change_text+'\n\n3. BALANCE DE MATERIA Y CARGA\nSe construyo y resolvio el sistema de conservacion para '+str(len(elems))+' elementos.\n\n4. ECUACION BALANCEADA\n'+final+'\n\n5. COMPROBACION\n'+'\n'.join(checks)+'\nCarga: '+str(ql)+' = '+str(qr)+'\n\n6. NOMENCLATURA\n'+'\n'.join(nomen))
+
 def group_compound(z,val,rid,mode):
     z=int(z); val=int(val); rid=int(rid); mode=int(mode)
     if rid not in RADICALS: raise ValueError('Radical no reconocido.')
@@ -479,6 +631,12 @@ try:
     elif op==1002:
         text=group_compound(gv('QZ1'),gv('QV1'),gv('QRID'),gv('QMODE'))
         ok(gv('QSUB1'),gv('QSUB2'),0,text)
+    elif op==1003:
+        rid=int(gv('QRID'))
+        if rid not in RADICALS: raise ValueError('Radical no reconocido.')
+        st_var('QFORM',RADICALS[rid][0]); ok(RADICALS[rid][1],0,0,RADICALS[rid][2])
+    elif op==2001:
+        ok(0,0,0,balance_equation(gv('QRXN')))
     else: fail('Operacion del motor no reconocida.')
 except Exception as ex:
     fail('Error: '+str(ex))
@@ -488,11 +646,79 @@ EXPORT QUIMICA_HYBRID()
 BEGIN
  LOCAL u:=1;
  REPEAT
-  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA","FUNCIONES Y NOMENCLATURA");
+  CHOOSE(u,"QUIMICA HYBRID","UNIDAD 1: ESTRUCTURA ATOMICA","UNIDAD 2: TABLA PERIODICA","FUNCIONES Y NOMENCLATURA","BALANCEO DE ECUACIONES");
   IF u==1 THEN QH_ATOMICA(); END;
   IF u==2 THEN QH_UNIDAD2(); END;
   IF u==3 THEN QH_NOMENCLATURA(); END;
+  IF u==4 THEN QH_REDOX(); END;
  UNTIL u==0;
+END;
+
+QH_REDOX()
+BEGIN
+ LOCAL op:=1,s:="";
+ REPEAT
+  CHOOSE(op,"EDITOR DE ECUACION","AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO");
+  IF op==1 THEN
+   s:=QH_ESPECIE();
+   IF SIZE(s)>0 THEN QREACT:=QREACT+IFTE(SIZE(QREACT)>0,"|","")+s; QRSHOW:=QRSHOW+IFTE(SIZE(QRSHOW)>0," + ","")+QLASTSHOW; END;
+  END;
+  IF op==2 THEN
+   IF SIZE(QREACT)==0 THEN MSGBOX("Primero agregue al menos un reactivo."); ELSE MSGBOX("Ahora agregue los productos."); END;
+  END;
+  IF op==3 THEN
+   IF SIZE(QREACT)==0 THEN MSGBOX("Primero agregue los reactivos."); ELSE
+    s:=QH_ESPECIE();
+    IF SIZE(s)>0 THEN QPROD:=QPROD+IFTE(SIZE(QPROD)>0,"|","")+s; QPSHOW:=QPSHOW+IFTE(SIZE(QPSHOW)>0," + ","")+QLASTSHOW; END;
+   END;
+  END;
+  IF op==4 THEN QH_VER_ECUACION(); END;
+  IF op==5 THEN
+   IF SIZE(QREACT)==0 OR SIZE(QPROD)==0 THEN MSGBOX("Complete ambos lados de la ecuacion."); ELSE
+    QRXN:=QREACT+">"+QPROD; QOP:=2001; QERR:=0; QTEXT:=""; PYTHON(CHEM_ENGINE);
+    IF QERR THEN MSGBOX(QTEXT); ELSE QH_RESULT("BALANCEO REDOX",QTEXT); END;
+   END;
+  END;
+  IF op==6 THEN QREACT:=""; QPROD:=""; QRSHOW:=""; QPSHOW:=""; MSGBOX("Ecuacion borrada."); END;
+ UNTIL op==0;
+END;
+
+QH_VER_ECUACION()
+BEGIN
+ IF SIZE(QREACT)==0 AND SIZE(QPROD)==0 THEN MSGBOX("La ecuacion esta vacia."); ELSE MSGBOX(QRSHOW+"  ->  "+QPSHOW); END;
+END;
+
+QH_ESPECIE()
+BEGIN
+ LOCAL formula:="",visible:="",op:=1,z,n:=1,r,q:=0,ss:=TP_SIMBOLOS(),parte:="";
+ REPEAT
+  CHOOSE(op,"CONSTRUIR SUSTANCIA","AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA");
+  IF op==1 THEN
+   z:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
+   IF z>0 THEN
+    n:=1; IF INPUT(n,"SUBINDICE","Cantidad de "+ss(z),"1 no se escribe") THEN
+     IF n>=1 AND IP(n)==n THEN formula:=formula+ss(z)+IFTE(n==1,"",STRING(n)); visible:=visible+ss(z)+IFTE(n==1,"",STRING(n)); ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+    END;
+   END;
+  END;
+  IF op==2 THEN
+   r:=QH_RADICALES();
+   IF r>0 THEN
+    QRID:=r; QOP:=1003; QERR:=0; QFORM:=""; PYTHON(CHEM_ENGINE);
+    IF QERR THEN MSGBOX(QTEXT); ELSE
+     n:=1; IF INPUT(n,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
+      IF n>=1 AND IP(n)==n THEN parte:=IFTE(n==1,QFORM,"("+QFORM+")"+STRING(n)); formula:=formula+parte; visible:=visible+parte; ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+     END;
+    END;
+   END;
+  END;
+  IF op==3 THEN IF SIZE(formula)>0 THEN QLASTSHOW:=visible; RETURN formula; ELSE MSGBOX("Agregue al menos un elemento."); END; END;
+  IF op==4 THEN
+   IF SIZE(formula)>0 THEN q:=-1; IF INPUT(q,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN IF q<>0 AND IP(q)==q THEN QLASTSHOW:="["+visible+"]^"+IFTE(q>0,"+","")+STRING(q); RETURN formula+"{"+STRING(q)+"}"; ELSE MSGBOX("La carga debe ser un entero distinto de cero."); END; END; ELSE MSGBOX("Agregue al menos un elemento."); END;
+  END;
+  IF op==5 THEN formula:=""; visible:=""; END;
+ UNTIL op==0;
+ RETURN "";
 END;
 
 QH_NOMENCLATURA()
@@ -665,40 +891,34 @@ END;
 QH_RESULT(titulo,texto)
 BEGIN
  LOCAL lineas:=QH_LINEAS(texto);
- LOCAL pagina:=1;
- LOCAL porPagina:=8;
- LOCAL paginas:=MAX(1,CEILING(SIZE(lineas)/porPagina));
- LOCAL inicio,i,y,tecla:=-1;
+ LOCAL primero:=1,maximo:=MAX(1,SIZE(lineas)-7);
+ LOCAL i,y,tecla:=-1,mx,my,tocando:=0,ultimoY:=0,nuevo,redibujar:=1;
  REPEAT
-  RECT_P(#E8EEF2);
-  RECT_P(0,0,319,39,#183B56,#183B56);
-  RECT_P(0,40,319,43,#2B7A78,#2B7A78);
-  TEXTOUT_P(titulo,10,8,2,#FFFFFF);
-  inicio:=(pagina-1)*porPagina+1;
-  FOR i FROM 0 TO porPagina-1 DO
-   IF inicio+i<=SIZE(lineas) THEN
-    y:=52+i*19;
-    IF INSTRING(lineas(inicio+i),"1. ")==1 OR INSTRING(lineas(inicio+i),"2. ")==1 OR INSTRING(lineas(inicio+i),"3. ")==1 OR INSTRING(lineas(inicio+i),"4. ")==1 THEN
-     TEXTOUT_P(lineas(inicio+i),10,y,1,#0B5566,300,#E8EEF2);
-    ELSE
-     TEXTOUT_P(lineas(inicio+i),10,y,1,#102A43,300,#E8EEF2);
+  IF redibujar THEN
+   RECT_P(#E8EEF2); RECT_P(0,0,319,39,#183B56,#183B56); RECT_P(0,40,319,43,#2B7A78,#2B7A78);
+   TEXTOUT_P(titulo,10,8,2,#FFFFFF);
+   FOR i FROM 0 TO 7 DO
+    IF primero+i<=SIZE(lineas) THEN
+     y:=50+i*20;
+     IF INSTRING(lineas(primero+i),"1. ")==1 OR INSTRING(lineas(primero+i),"2. ")==1 OR INSTRING(lineas(primero+i),"3. ")==1 OR INSTRING(lineas(primero+i),"4. ")==1 OR INSTRING(lineas(primero+i),"5. ")==1 OR INSTRING(lineas(primero+i),"6. ")==1 THEN TEXTOUT_P(lineas(primero+i),8,y,1,#0B5566,294,#E8EEF2); ELSE TEXTOUT_P(lineas(primero+i),8,y,1,#102A43,294,#E8EEF2); END;
     END;
    END;
+   RECT_P(306,45,318,211,#D2DCE2,#D2DCE2);
+   y:=45+IP((primero-1)*146/MAX(1,maximo-1)); RECT_P(308,y,316,MIN(211,y+20),#2B7A78,#2B7A78);
+   RECT_P(0,216,319,239,#183B56,#183B56); TEXTOUT_P("ARRASTRE PARA DESPLAZAR  |  ENTER SALIR",16,222,1,#FFFFFF);
+   redibujar:=0;
   END;
-  RECT_P(0,216,93,239,#183B56,#183B56);
-  RECT_P(95,216,224,239,#526D82,#526D82);
-  RECT_P(226,216,319,239,#183B56,#183B56);
-  TEXTOUT_P("< ANT",15,222,1,#FFFFFF);
-  TEXTOUT_P(STRING(pagina)+" / "+STRING(paginas),139,222,1,#FFFFFF);
-  TEXTOUT_P("SIG >",252,222,1,#FFFFFF);
-  REPEAT tecla:=GETKEY; WAIT(0.04); UNTIL tecla<>-1 OR MOUSE(0)>=0;
-  IF tecla==7 OR tecla==2 THEN pagina:=MAX(1,pagina-1); END;
-  IF tecla==8 OR tecla==12 THEN pagina:=MIN(paginas,pagina+1); END;
-  IF MOUSE(0)>=0 THEN
-   IF MOUSE(1)>=216 AND MOUSE(0)<95 THEN pagina:=MAX(1,pagina-1); END;
-   IF MOUSE(1)>=216 AND MOUSE(0)>225 THEN pagina:=MIN(paginas,pagina+1); END;
-  END;
-  WAIT(0.15);
+  tecla:=GETKEY; mx:=MOUSE(0); my:=MOUSE(1);
+  nuevo:=primero;
+  IF tecla==2 OR tecla==7 THEN nuevo:=MAX(1,primero-1); END;
+  IF tecla==12 OR tecla==8 THEN nuevo:=MIN(maximo,primero+1); END;
+  IF mx>=0 AND my<214 THEN
+   IF tocando==0 THEN tocando:=1; ultimoY:=my; ELSE
+    IF ABS(my-ultimoY)>=12 THEN nuevo:=MAX(1,MIN(maximo,primero+IFTE(my<ultimoY,1,-1))); ultimoY:=my; END;
+   END;
+  ELSE tocando:=0; END;
+  IF nuevo<>primero THEN primero:=nuevo; redibujar:=1; END;
+  WAIT(0.03);
  UNTIL tecla==4 OR tecla==19 OR tecla==30;
 END;
 
