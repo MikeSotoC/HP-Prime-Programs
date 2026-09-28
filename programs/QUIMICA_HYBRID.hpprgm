@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.4 - HP Prime G1/G2
+// QUIMICA HYBRID 2.4.1 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -758,14 +758,15 @@ END;
 
 QH_ESPECIE()
 BEGIN
- LOCAL formula:="",visible:="",op:=1,z,n:=1,r,q:=0,ss:=TP_SIMBOLOS(),parte:="";
+ LOCAL frm,vis,op,z,n,r,q,ss,prt;
+ frm:=""; vis:=""; op:=1; n:=1; q:=0; prt:=""; ss:=TP_SIMBOLOS();
  REPEAT
   CHOOSE(op,"CONSTRUIR SUSTANCIA","AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA");
   IF op==1 THEN
    z:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
    IF z>0 THEN
     n:=1; IF INPUT(n,"SUBINDICE","Cantidad de "+ss(z),"1 no se escribe") THEN
-     IF n>=1 AND IP(n)==n THEN formula:=formula+ss(z)+IFTE(n==1,"",STRING(n)); visible:=visible+ss(z)+IFTE(n==1,"",STRING(n)); ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+     IF n>=1 AND IP(n)==n THEN frm:=frm+ss(z)+IFTE(n==1,"",STRING(n)); vis:=vis+ss(z)+IFTE(n==1,"",STRING(n)); ELSE MSGBOX("El subindice debe ser entero positivo."); END;
     END;
    END;
   END;
@@ -775,16 +776,16 @@ BEGIN
     QRID:=r; QOP:=1003; QERR:=0; QFORM:=""; PYTHON(CHEM_ENGINE);
     IF QERR THEN MSGBOX(QTEXT); ELSE
      n:=1; IF INPUT(n,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
-      IF n>=1 AND IP(n)==n THEN parte:=IFTE(n==1,QFORM,"("+QFORM+")"+STRING(n)); formula:=formula+parte; visible:=visible+parte; ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+      IF n>=1 AND IP(n)==n THEN prt:=IFTE(n==1,QFORM,"("+QFORM+")"+STRING(n)); frm:=frm+prt; vis:=vis+prt; ELSE MSGBOX("El subindice debe ser entero positivo."); END;
      END;
     END;
    END;
   END;
-  IF op==3 THEN IF SIZE(formula)>0 THEN QLASTSHOW:=visible; RETURN formula; ELSE MSGBOX("Agregue al menos un elemento."); END; END;
+  IF op==3 THEN IF SIZE(frm)>0 THEN QLASTSHOW:=vis; RETURN frm; ELSE MSGBOX("Agregue al menos un elemento."); END; END;
   IF op==4 THEN
-   IF SIZE(formula)>0 THEN q:=-1; IF INPUT(q,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN IF q<>0 AND IP(q)==q THEN QLASTSHOW:="["+visible+"]^"+IFTE(q>0,"+","")+STRING(q); RETURN formula+"{"+STRING(q)+"}"; ELSE MSGBOX("La carga debe ser un entero distinto de cero."); END; END; ELSE MSGBOX("Agregue al menos un elemento."); END;
+   IF SIZE(frm)>0 THEN q:=-1; IF INPUT(q,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN IF q<>0 AND IP(q)==q THEN QLASTSHOW:="["+vis+"]^"+IFTE(q>0,"+","")+STRING(q); RETURN frm+"{"+STRING(q)+"}"; ELSE MSGBOX("La carga debe ser un entero distinto de cero."); END; END; ELSE MSGBOX("Agregue al menos un elemento."); END;
   END;
-  IF op==5 THEN formula:=""; visible:=""; END;
+  IF op==5 THEN frm:=""; vis:=""; END;
  UNTIL op==0;
  RETURN "";
 END;
