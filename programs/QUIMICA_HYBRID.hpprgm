@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.6.1 - HP Prime G1/G2
+// QUIMICA HYBRID 2.6.2 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -1069,7 +1069,7 @@ BEGIN
    RETURN 12;
   END;
   WAIT(0.05);
- UNTIL 0;
+ UNTIL teclaLeida==-999;
 END;
 
 TP_LIMPIAR_BUFFER()
@@ -1215,7 +1215,7 @@ BEGIN
    TEXTOUT_P(titulo+": "+simbolos(sel)+" "+nombres(sel),5,4,1,#FFFFFF);
   END;
   WAIT(0.05);
- UNTIL 0;
+ UNTIL k==-999;
 END;
 
 EXPORT TP_TABLA()
@@ -1416,6 +1416,9 @@ BEGIN
  LOCAL alto:=35;
  LOCAL espacio:=6;
  LOCAL posY;
+ WHILE SIZE(activos)<total DO
+  activos:=CONCAT(activos,{0});
+ END;
  IF total==1 THEN inicioY:=82; alto:=56; END;
  IF total==2 THEN inicioY:=67; alto:=56; espacio:=14; END;
  IF total==3 THEN inicioY:=52; alto:=43; espacio:=9; END;
@@ -1444,8 +1447,8 @@ BEGIN
    IF primera<>primeraAnterior THEN
     QH_MENU_LISTA(opciones,activos,seleccionado,primera,inicioY,alto,espacio);
    ELSE
-    QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,QH_MARCA_ACTIVA(activos,anterior));
-    QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,QH_MARCA_ACTIVA(activos,seleccionado));
+    QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,activos(anterior));
+    QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,activos(seleccionado));
    END;
    QH_MENU_CONTADOR(seleccionado,total);
   END;
@@ -1461,24 +1464,14 @@ BEGIN
      IF seleccionado==indice THEN RETURN indice; END;
      anterior:=seleccionado;
      seleccionado:=indice;
-     QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,QH_MARCA_ACTIVA(activos,anterior));
-     QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,QH_MARCA_ACTIVA(activos,seleccionado));
+     QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,activos(anterior));
+     QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,activos(seleccionado));
      QH_MENU_CONTADOR(seleccionado,total);
     END;
    END;
   END;
   WAIT(0.04);
- UNTIL 0;
-END;
-
-QH_MARCA_ACTIVA(activos,indiceMarca)
-BEGIN
- IF SIZE(activos)>=indiceMarca THEN
-  IF activos(indiceMarca)==1 THEN
-   RETURN "ACTIVO";
-  END;
- END;
- RETURN "";
+ UNTIL tecla==-999;
 END;
 
 QH_MENU_FONDO(titulo,subtitulo)
@@ -1506,7 +1499,7 @@ BEGIN
  LOCAL ultimo:=MIN(total,primera+3);
  RECT_P(0,42,319,214,#E2E7E8,#E2E7E8);
  FOR indice FROM primera TO ultimo DO
-  QH_MENU_TARJETA(indice,opciones(indice),indice==seleccionado,indice-primera+1,inicioY,alto,espacio,QH_MARCA_ACTIVA(activos,indice));
+  QH_MENU_TARJETA(indice,opciones(indice),indice==seleccionado,indice-primera+1,inicioY,alto,espacio,activos(indice));
  END;
  IF total>4 THEN
   IF primera>1 THEN TRIANGLE_P(310,50,303,62,317,62,#217B9C); END;
@@ -1517,14 +1510,14 @@ END;
 // IMPORTANTE: RECT_P con 5 argumentos RELLENA con ese color. Por eso antes
 // se veia el fondo gris-azulado y el texto "resaltado". Aqui siempre se
 // usan los 6 argumentos (borde, relleno).
-QH_MENU_TARJETA(indice,texto,marcada,fila,inicioY,alto,espacio,insignia)
+QH_MENU_TARJETA(indice,texto,marcada,fila,inicioY,alto,espacio,activa)
 BEGIN
  LOCAL posY:=inicioY+(fila-1)*(alto+espacio);
  LOCAL fondo:=#FFFFFF;
  LOCAL borde:=#BECAD4;
  LOCAL tinta:=#25364A;
  LOCAL chip:=#217B9C;
- LOCAL ancho:=IFTE(SIZE(insignia)>0,165,215);
+ LOCAL ancho:=IFTE(activa==1,165,215);
  LOCAL ty:=posY+IP(alto/2)-6;
  RECT_P(8,posY-2,297,posY+alto+2,#E2E7E8,#E2E7E8);
  IF marcada THEN fondo:=#217B9C; borde:=#142837; tinta:=#FFFFFF; chip:=#252C2E; END;
@@ -1533,9 +1526,9 @@ BEGIN
  RECT_P(24,posY+7,48,posY+alto-7,chip,chip);
  TEXTOUT_P(STRING(indice),IFTE(indice>9,29,33),ty,1,#FFFFFF);
  TEXTOUT_P(texto,58,ty,1,tinta,ancho,fondo);
- IF SIZE(insignia)>0 THEN
+ IF activa==1 THEN
   RECT_P(228,posY+9,278,posY+alto-9,#2E7D5B,#2E7D5B);
-  TEXTOUT_P(insignia,233,posY+IP(alto/2)-4,0,#FFFFFF);
+  TEXTOUT_P("ACTIVO",233,posY+IP(alto/2)-4,0,#FFFFFF);
  END;
  IF marcada THEN TEXTOUT_P(">",282,ty,2,#FFFFFF); END;
 END;
