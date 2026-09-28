@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.4.1 - HP Prime G1/G2
+// QUIMICA HYBRID 2.4.2 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -724,31 +724,34 @@ END;
 
 QH_REDOX()
 BEGIN
- LOCAL op:=1,s:="";
+ LOCAL opcionRedox;
+ LOCAL sustanciaRedox;
+ opcionRedox:=1;
+ sustanciaRedox:="";
  REPEAT
-  CHOOSE(op,"EDITOR DE ECUACION","AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO");
-  IF op==1 THEN
-   s:=QH_ESPECIE();
-   IF SIZE(s)>0 THEN QREACT:=QREACT+IFTE(SIZE(QREACT)>0,"|","")+s; QRSHOW:=QRSHOW+IFTE(SIZE(QRSHOW)>0," + ","")+QLASTSHOW; END;
+  CHOOSE(opcionRedox,"EDITOR DE ECUACION","AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO");
+  IF opcionRedox==1 THEN
+   sustanciaRedox:=QH_ESPECIE();
+   IF SIZE(sustanciaRedox)>0 THEN QREACT:=QREACT+IFTE(SIZE(QREACT)>0,"|","")+sustanciaRedox; QRSHOW:=QRSHOW+IFTE(SIZE(QRSHOW)>0," + ","")+QLASTSHOW; END;
   END;
-  IF op==2 THEN
+  IF opcionRedox==2 THEN
    IF SIZE(QREACT)==0 THEN MSGBOX("Primero agregue al menos un reactivo."); ELSE MSGBOX("Ahora agregue los productos."); END;
   END;
-  IF op==3 THEN
+  IF opcionRedox==3 THEN
    IF SIZE(QREACT)==0 THEN MSGBOX("Primero agregue los reactivos."); ELSE
-    s:=QH_ESPECIE();
-    IF SIZE(s)>0 THEN QPROD:=QPROD+IFTE(SIZE(QPROD)>0,"|","")+s; QPSHOW:=QPSHOW+IFTE(SIZE(QPSHOW)>0," + ","")+QLASTSHOW; END;
+    sustanciaRedox:=QH_ESPECIE();
+    IF SIZE(sustanciaRedox)>0 THEN QPROD:=QPROD+IFTE(SIZE(QPROD)>0,"|","")+sustanciaRedox; QPSHOW:=QPSHOW+IFTE(SIZE(QPSHOW)>0," + ","")+QLASTSHOW; END;
    END;
   END;
-  IF op==4 THEN QH_VER_ECUACION(); END;
-  IF op==5 THEN
+  IF opcionRedox==4 THEN QH_VER_ECUACION(); END;
+  IF opcionRedox==5 THEN
    IF SIZE(QREACT)==0 OR SIZE(QPROD)==0 THEN MSGBOX("Complete ambos lados de la ecuacion."); ELSE
     QRXN:=QREACT+">"+QPROD; QOP:=2001; QERR:=0; QTEXT:=""; PYTHON(CHEM_ENGINE);
     IF QERR THEN MSGBOX(QTEXT); ELSE QH_RESULT("BALANCEO REDOX",QTEXT); END;
    END;
   END;
-  IF op==6 THEN QREACT:=""; QPROD:=""; QRSHOW:=""; QPSHOW:=""; MSGBOX("Ecuacion borrada."); END;
- UNTIL op==0;
+  IF opcionRedox==6 THEN QREACT:=""; QPROD:=""; QRSHOW:=""; QPSHOW:=""; MSGBOX("Ecuacion borrada."); END;
+ UNTIL opcionRedox==0;
 END;
 
 QH_VER_ECUACION()
@@ -758,35 +761,57 @@ END;
 
 QH_ESPECIE()
 BEGIN
- LOCAL frm,vis,op,z,n,r,q,ss,prt;
- frm:=""; vis:=""; op:=1; n:=1; q:=0; prt:=""; ss:=TP_SIMBOLOS();
+ LOCAL textoFormula;
+ LOCAL textoVisible;
+ LOCAL opcionEspecie;
+ LOCAL numeroAtomico;
+ LOCAL subindice;
+ LOCAL indiceRadical;
+ LOCAL cargaIon;
+ LOCAL listaSimbolos;
+ LOCAL parteGrupo;
+ textoFormula:="";
+ textoVisible:="";
+ opcionEspecie:=1;
+ subindice:=1;
+ cargaIon:=0;
+ parteGrupo:="";
+ listaSimbolos:=TP_SIMBOLOS();
  REPEAT
-  CHOOSE(op,"CONSTRUIR SUSTANCIA","AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA");
-  IF op==1 THEN
-   z:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
-   IF z>0 THEN
-    n:=1; IF INPUT(n,"SUBINDICE","Cantidad de "+ss(z),"1 no se escribe") THEN
-     IF n>=1 AND IP(n)==n THEN frm:=frm+ss(z)+IFTE(n==1,"",STRING(n)); vis:=vis+ss(z)+IFTE(n==1,"",STRING(n)); ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+  CHOOSE(opcionEspecie,"CONSTRUIR SUSTANCIA","AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA");
+  IF opcionEspecie==1 THEN
+   numeroAtomico:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
+   IF numeroAtomico>0 THEN
+    subindice:=1; IF INPUT(subindice,"SUBINDICE","Cantidad de "+listaSimbolos(numeroAtomico),"1 no se escribe") THEN
+     IF subindice>=1 AND IP(subindice)==subindice THEN textoFormula:=textoFormula+listaSimbolos(numeroAtomico)+IFTE(subindice==1,"",STRING(subindice)); textoVisible:=textoVisible+listaSimbolos(numeroAtomico)+IFTE(subindice==1,"",STRING(subindice)); ELSE MSGBOX("El subindice debe ser entero positivo."); END;
     END;
    END;
   END;
-  IF op==2 THEN
-   r:=QH_RADICALES();
-   IF r>0 THEN
-    QRID:=r; QOP:=1003; QERR:=0; QFORM:=""; PYTHON(CHEM_ENGINE);
+  IF opcionEspecie==2 THEN
+   indiceRadical:=QH_RADICALES();
+   IF indiceRadical>0 THEN
+    QRID:=indiceRadical; QOP:=1003; QERR:=0; QFORM:=""; PYTHON(CHEM_ENGINE);
     IF QERR THEN MSGBOX(QTEXT); ELSE
-     n:=1; IF INPUT(n,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
-      IF n>=1 AND IP(n)==n THEN prt:=IFTE(n==1,QFORM,"("+QFORM+")"+STRING(n)); frm:=frm+prt; vis:=vis+prt; ELSE MSGBOX("El subindice debe ser entero positivo."); END;
+     subindice:=1; IF INPUT(subindice,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
+      IF subindice>=1 AND IP(subindice)==subindice THEN parteGrupo:=IFTE(subindice==1,QFORM,"("+QFORM+")"+STRING(subindice)); textoFormula:=textoFormula+parteGrupo; textoVisible:=textoVisible+parteGrupo; ELSE MSGBOX("El subindice debe ser entero positivo."); END;
      END;
     END;
    END;
   END;
-  IF op==3 THEN IF SIZE(frm)>0 THEN QLASTSHOW:=vis; RETURN frm; ELSE MSGBOX("Agregue al menos un elemento."); END; END;
-  IF op==4 THEN
-   IF SIZE(frm)>0 THEN q:=-1; IF INPUT(q,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN IF q<>0 AND IP(q)==q THEN QLASTSHOW:="["+vis+"]^"+IFTE(q>0,"+","")+STRING(q); RETURN frm+"{"+STRING(q)+"}"; ELSE MSGBOX("La carga debe ser un entero distinto de cero."); END; END; ELSE MSGBOX("Agregue al menos un elemento."); END;
+  IF opcionEspecie==3 THEN
+   IF SIZE(textoFormula)>0 THEN QLASTSHOW:=textoVisible; RETURN textoFormula; ELSE MSGBOX("Agregue al menos un elemento."); END;
   END;
-  IF op==5 THEN frm:=""; vis:=""; END;
- UNTIL op==0;
+  IF opcionEspecie==4 THEN
+   IF SIZE(textoFormula)>0 THEN
+    cargaIon:=-1;
+    IF INPUT(cargaIon,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN
+     IF cargaIon<>0 AND IP(cargaIon)==cargaIon THEN QLASTSHOW:="["+textoVisible+"]^"+IFTE(cargaIon>0,"+","")+STRING(cargaIon); RETURN textoFormula+"{"+STRING(cargaIon)+"}"; ELSE MSGBOX("La carga debe ser un entero distinto de cero."); END;
+    END;
+   ELSE MSGBOX("Agregue al menos un elemento.");
+   END;
+  END;
+  IF opcionEspecie==5 THEN textoFormula:=""; textoVisible:=""; END;
+ UNTIL opcionEspecie==0;
  RETURN "";
 END;
 
