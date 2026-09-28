@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.6.4 - HP Prime G1/G2
+// QUIMICA HYBRID 2.6.5 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -158,20 +158,37 @@ def electron_config(z):
             78:(5,'d',6,'s'),79:(5,'d',6,'s')}
     if z in shifts:
         dn,dl,sn,sl=shifts[z]
-        di=next((i for i,x in enumerate(filled) if x[0]==dn and x[1]==dl),None)
-        si=next((i for i,x in enumerate(filled) if x[0]==sn and x[1]==sl),None)
-        if di is not None and si is not None and filled[si][2]>0:
-            filled[di][2]+=1; filled[si][2]-=1
-    active=[x for x in filled if x[2]]
-    cfg=' '.join(str(n)+l+''.join('⁰¹²³⁴⁵⁶⁷⁸⁹'[int(d)] for d in str(e)) for n,l,e in active)
-    period=max(x[0] for x in filled if x[2])
+        di=-1; si=-1
+        for indice in range(len(filled)):
+            x=filled[indice]
+            if x[0]==dn and x[1]==dl: di=indice
+            if x[0]==sn and x[1]==sl: si=indice
+        if di>=0 and si>=0 and filled[si][2]>0:
+            filled[di][2]+=1
+            filled[si][2]-=1
+    active=[]
+    for x in filled:
+        if x[2]>0: active.append(x)
+    partes=[]
+    supers='⁰¹²³⁴⁵⁶⁷⁸⁹'
+    for x in active:
+        exponente=''
+        for digito in str(x[2]):
+            exponente+=supers[int(digito)]
+        partes.append(str(x[0])+x[1]+exponente)
+    cfg=' '.join(partes)
+    period=0
+    for x in filled:
+        if x[2]>0 and x[0]>period: period=x[0]
     last_n,last_l,last_e=active[-1]
     if last_l=='s': group=last_e
     elif last_l=='p': group=12+last_e
     elif last_l=='d': group=2+last_e
     else: group=3
     if z==2: group=18
-    valence=sum(x[2] for x in active if x[0]==period)
+    valence=0
+    for x in active:
+        if x[0]==period: valence+=x[2]
     if 57<=z<=71: family='Lantanido'; block='f'
     elif 89<=z<=103: family='Actinido'; block='f'
     elif group==1: family='Alcalino' if z!=1 else 'No metal'
@@ -1376,7 +1393,7 @@ BEGIN
  LOCAL color:=#217B9C;
  LOCAL simbolo:="i";
  LOCAL indiceLinea;
- LOCAL t0;
+ LOCAL ciclos:=0;
  LOCAL fin:=0;
  IF tipo==1 THEN color:=#2E7D5B; simbolo:="OK"; END;
  IF tipo==2 THEN color:=#C98A1B; simbolo:="!"; END;
@@ -1388,11 +1405,11 @@ BEGIN
   TEXTOUT_P(lineas(indiceLinea),58,y0+6+(indiceLinea-1)*16,1,#142837);
  END;
  TP_LIMPIAR_BUFFER();
- t0:=TICKS;
  REPEAT
   WAIT(0.05);
+  ciclos:=ciclos+1;
   IF GETKEY<>-1 OR MOUSE(0)>=0 THEN fin:=1; END;
- UNTIL fin==1 OR TICKS-t0>1300+600*n;
+ UNTIL fin==1 OR ciclos>26+12*n;
  WAIT(0.2);
 END;
 
