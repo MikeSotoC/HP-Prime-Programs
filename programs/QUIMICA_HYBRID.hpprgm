@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.6.5 - HP Prime G1/G2
+// QUIMICA HYBRID 2.7.0 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -980,6 +980,10 @@ END;
 
 QH_EJECUTAR(codigo,valorA,valorB,valorC,valorD,encabezado)
 BEGIN
+ IF codigo==402 THEN
+  QH_CONFIG_ELECTRONICA(valorA,encabezado);
+  RETURN;
+ END;
  QOP:=codigo;
  QA:=valorA;
  QB:=valorB;
@@ -993,6 +997,73 @@ BEGIN
  ELSE
   QH_RESULT(encabezado,QTEXT);
  END;
+END;
+
+QH_SUPER(numero)
+BEGIN
+ LOCAL texto:=STRING(numero);
+ LOCAL salida:="";
+ LOCAL indice;
+ LOCAL digito;
+ LOCAL superiores:={"⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"};
+ FOR indice FROM 1 TO SIZE(texto) DO
+  digito:=INSTRING("0123456789",MID(texto,indice,1))-1;
+  salida:=salida+superiores(digito+1);
+ END;
+ RETURN salida;
+END;
+
+QH_CONFIG_ELECTRONICA(numeroAtomico,encabezado)
+BEGIN
+ LOCAL listaN:={1,2,2,3,3,4,3,4,5,4,5,6,4,5,6,7,5,6,7};
+ LOCAL listaL:={"s","s","p","s","p","s","d","p","s","d","p","s","f","d","p","s","f","d","p"};
+ LOCAL listaCap:={2,2,6,2,6,2,10,6,2,10,6,2,14,10,6,2,14,10,6};
+ LOCAL restante:=numeroAtomico;
+ LOCAL configuracion:="";
+ LOCAL niveles:={};
+ LOCAL letras:={};
+ LOCAL cantidades:={};
+ LOCAL indice;
+ LOCAL electrones;
+ LOCAL periodo:=0;
+ LOCAL grupo:=0;
+ LOCAL valencia:=0;
+ LOCAL ultimoNivel:=0;
+ LOCAL ultimaLetra:="";
+ LOCAL ultimoElectron:=0;
+ LOCAL simbolos:=TP_SIMBOLOS();
+ FOR indice FROM 1 TO SIZE(listaN) DO
+  IF restante>0 THEN
+   electrones:=MIN(restante,listaCap(indice));
+   IF SIZE(configuracion)>0 THEN configuracion:=configuracion+" "; END;
+   configuracion:=configuracion+STRING(listaN(indice))+listaL(indice)+QH_SUPER(electrones);
+   niveles:=CONCAT(niveles,{listaN(indice)});
+   letras:=CONCAT(letras,{listaL(indice)});
+   cantidades:=CONCAT(cantidades,{electrones});
+   restante:=restante-electrones;
+  END;
+ END;
+ ultimoNivel:=niveles(SIZE(niveles));
+ ultimaLetra:=letras(SIZE(letras));
+ ultimoElectron:=cantidades(SIZE(cantidades));
+ FOR indice FROM 1 TO SIZE(niveles) DO
+  IF niveles(indice)>periodo THEN periodo:=niveles(indice); END;
+ END;
+ FOR indice FROM 1 TO SIZE(niveles) DO
+  IF niveles(indice)==periodo THEN valencia:=valencia+cantidades(indice); END;
+ END;
+ IF ultimaLetra=="s" THEN grupo:=ultimoElectron; END;
+ IF ultimaLetra=="p" THEN grupo:=ultimoElectron+12; END;
+ IF ultimaLetra=="d" THEN grupo:=ultimoElectron+2; END;
+ IF ultimaLetra=="f" THEN grupo:=3; END;
+ IF numeroAtomico==2 THEN grupo:=18; END;
+ QH_RESULT(encabezado,
+  "1. ELEMENTO"+CHAR(10)+simbolos(numeroAtomico)+"   Z = "+STRING(numeroAtomico)+CHAR(10)+CHAR(10)+
+  "2. REGLA DE LLENADO"+CHAR(10)+"Aufbau + Pauli + Hund"+CHAR(10)+CHAR(10)+
+  "3. CONFIGURACION"+CHAR(10)+configuracion+CHAR(10)+CHAR(10)+
+  "4. ANALISIS"+CHAR(10)+"Grupo = "+STRING(grupo)+CHAR(10)+"Periodo = "+STRING(periodo)+CHAR(10)+
+  "Electrones de valencia = "+STRING(valencia)+CHAR(10)+"Familia = "+TP_FAMILIA(numeroAtomico,grupo)+CHAR(10)+
+  "Bloque = "+TP_BLOQUE(numeroAtomico,grupo));
 END;
 
 
