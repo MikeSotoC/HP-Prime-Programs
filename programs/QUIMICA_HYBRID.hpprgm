@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.4.3 - HP Prime G1/G2
+// QUIMICA HYBRID 2.4.4 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -818,7 +818,10 @@ END;
 QH_NOMENCLATURA()
 BEGIN
  LOCAL modo:=1;
- LOCAL z1,z2,v1:=2,v2:=-2;
+ LOCAL z1;
+ LOCAL z2;
+ LOCAL v1:=2;
+ LOCAL v2:=-2;
  REPEAT
   CHOOSE(modo,"FORMULAR, INTERPRETAR Y NOMBRAR","COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES","CATALOGO DE ANIONES -URO");
   IF modo==1 THEN
@@ -844,7 +847,10 @@ END;
 QH_SIMPLE()
 BEGIN
  LOCAL z:=TP_SELECCIONAR("ELEMENTO PURO");
- LOCAL s,n,ss:=TP_SIMBOLOS(),nn:=TP_NOMBRES();
+ LOCAL s;
+ LOCAL n;
+ LOCAL ss:=TP_SIMBOLOS();
+ LOCAL nn:=TP_NOMBRES();
  IF z==0 THEN RETURN; END;
  s:=ss(z); n:=nn(z);
  QH_DIBUJAR_FORMULA(s,1,0,"",1,0);
@@ -922,7 +928,8 @@ END;
 QH_GRUPO(tipo)
 BEGIN
  LOCAL r:=QH_RADICALES();
- LOCAL z:=1,v:=1;
+ LOCAL z:=1;
+ LOCAL v:=1;
  IF r==0 THEN RETURN; END;
  IF tipo==2 THEN
   IF r==1 OR r==16 THEN MSGBOX("Seleccione un oxoanion para formar un oxoacido."); RETURN; END;
@@ -941,7 +948,9 @@ END;
 
 QH_DIBUJAR_GRUPO(s1,n1,v1,g,n2,v2)
 BEGIN
- LOCAL x:=35,w1:=IFTE(SIZE(s1)==1,27,43),wg:=SIZE(g)*18;
+ LOCAL x:=35;
+ LOCAL w1:=IFTE(SIZE(s1)==1,27,43);
+ LOCAL wg:=SIZE(g)*18;
  RECT_P(#FFFFFF);
  TEXTOUT_P("FORMULA INTERPRETADA",65,18,2,#183B56);
  IF QREV==1 THEN
@@ -994,7 +1003,8 @@ END;
 
 QH_UNIDAD2()
 BEGIN
- LOCAL o:=1,z:=17;
+ LOCAL o:=1;
+ LOCAL z:=17;
  REPEAT
   CHOOSE(o,"TABLA PERIODICA","TABLA INTERACTIVA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO");
   IF o==1 THEN
@@ -1023,8 +1033,17 @@ END;
 QH_RESULT(titulo,texto)
 BEGIN
  LOCAL lineas:=QH_LINEAS(texto);
- LOCAL primero:=1,maximo:=MAX(1,SIZE(lineas)-7);
- LOCAL i,y,tecla:=-1,mx,my,tocando:=0,ultimoY:=0,nuevo,redibujar:=1;
+ LOCAL primero:=1;
+ LOCAL maximo:=MAX(1,SIZE(lineas)-7);
+ LOCAL i;
+ LOCAL y;
+ LOCAL tecla:=-1;
+ LOCAL mx;
+ LOCAL my;
+ LOCAL tocando:=0;
+ LOCAL ultimoY:=0;
+ LOCAL nuevo;
+ LOCAL redibujar:=1;
  REPEAT
   IF redibujar THEN
    RECT_P(#E8EEF2); RECT_P(0,0,319,39,#183B56,#183B56); RECT_P(0,40,319,43,#2B7A78,#2B7A78);
@@ -1058,7 +1077,8 @@ QH_LINEAS(texto)
 BEGIN
  LOCAL salida:={};
  LOCAL resto:=texto;
- LOCAL pos,linea;
+ LOCAL pos;
+ LOCAL linea;
  REPEAT
   pos:=INSTRING(resto,CHAR(10));
   IF pos==0 THEN
@@ -1074,7 +1094,10 @@ END;
 
 QH_ATOMICA()
 BEGIN
- LOCAL o:=1,a:=-1,b:=-1,c:=0;
+ LOCAL o:=1;
+ LOCAL a:=-1;
+ LOCAL b:=-1;
+ LOCAL c:=0;
  REPEAT
   CHOOSE(o,"ESTRUCTURA ATOMICA","PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA");
   IF o>=1 AND o<=3 THEN
@@ -1243,7 +1266,15 @@ BEGIN
  LOCAL nombres:=TP_NOMBRES();
  LOCAL grupos:=TP_GRUPOS();
  LOCAL periodos:=TP_PERIODOS();
- LOCAL sel:=1,nuevo:=1,k:=-1,x:=-1,y:=-1,z,pos,cx,cy;
+ LOCAL sel:=1;
+ LOCAL nuevo:=1;
+ LOCAL k:=-1;
+ LOCAL x:=-1;
+ LOCAL y:=-1;
+ LOCAL z;
+ LOCAL pos;
+ LOCAL cx;
+ LOCAL cy;
  TP_DIBUJAR_TABLA(sel,simbolos,nombres,grupos,periodos);
  RECT_P(0,0,319,22,#212728,#212728);
  TEXTOUT_P(titulo+": "+simbolos(sel),5,4,1,#FFFFFF);
