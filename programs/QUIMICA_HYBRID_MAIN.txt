@@ -1,0 +1,1212 @@
+
+// QUIMICA HYBRID 2.8.0 - HP Prime G1/G2
+// Interfaz: HP PPL | Motor: MicroPython
+// Formato hibrido: Python primero, PPL despues de #END.
+
+QOP:=0;
+QA:=0;
+QB:=0;
+QC:=0;
+QD:=0;
+QOUT1:=0;
+QOUT2:=0;
+QOUT3:=0;
+QTEXT:="";
+QERR:=0;
+QZ1:=0;
+QZ2:=0;
+QV1:=0;
+QV2:=0;
+QSUB1:=1;
+QSUB2:=1;
+QSYM1:="";
+QSYM2:="";
+QRID:=0;
+QMODE:=0;
+QFORM:="";
+QGROUP:="";
+QREV:=0;
+QRXN:="";
+QREACT:="";
+QPROD:="";
+QRSHOW:="";
+QPSHOW:="";
+QLASTSHOW:="";
+CFG_PROFILE:=1;
+CFG_H:=6.63E-34;
+CFG_C:=3E8;
+CFG_EV:=1.6E-19;
+CFG_ERG:=1E7;
+CFG_A0:=0.529;
+CFG_V0:=2.18E8;
+CFG_RY:=13.6;
+
+EXPORT QUIMICA_HYBRID()
+BEGIN
+ LOCAL u:=1;
+ REPEAT
+  u:=QH_MENU("QUIMICA HYBRID","QUIMICA GENERAL",{"UNIDAD 1  ESTRUCTURA ATOMICA","UNIDAD 2  TABLA PERIODICA","FUNCIONES Y NOMENCLATURA","BALANCEO DE ECUACIONES","CONFIGURACION DE CONSTANTES"});
+  IF u==1 THEN QH_ATOMICA(); END;
+  IF u==2 THEN QH_UNIDAD2(); END;
+  IF u==3 THEN QH_NOMENCLATURA(); END;
+  IF u==4 THEN QH_REDOX(); END;
+  IF u==5 THEN QH_CONFIG(); END;
+ UNTIL u==0;
+END;
+
+
+
+
+
+
+
+QH_REDOX()
+BEGIN
+ LOCAL opcionRedox;
+ LOCAL sustanciaRedox;
+ opcionRedox:=1;
+ sustanciaRedox:="";
+ REPEAT
+  opcionRedox:=QH_MENU("EDITOR DE ECUACION","BALANCEO Y EXPLICACION",{"AGREGAR REACTIVO","PASAR A PRODUCTOS","AGREGAR PRODUCTO","VER ECUACION","BALANCEAR Y EXPLICAR","BORRAR TODO"});
+  IF opcionRedox==1 THEN
+   sustanciaRedox:=QH_ESPECIE();
+   IF SIZE(sustanciaRedox)>0 THEN QREACT:=QREACT+IFTE(SIZE(QREACT)>0,"|","")+sustanciaRedox; QRSHOW:=QRSHOW+IFTE(SIZE(QRSHOW)>0," + ","")+QLASTSHOW; END;
+  END;
+  IF opcionRedox==2 THEN
+   IF SIZE(QREACT)==0 THEN QH_AVISO("Primero agregue al menos un reactivo."); ELSE QH_AVISO("Ahora agregue los productos."); END;
+  END;
+  IF opcionRedox==3 THEN
+   IF SIZE(QREACT)==0 THEN QH_AVISO("Primero agregue los reactivos."); ELSE
+    sustanciaRedox:=QH_ESPECIE();
+    IF SIZE(sustanciaRedox)>0 THEN QPROD:=QPROD+IFTE(SIZE(QPROD)>0,"|","")+sustanciaRedox; QPSHOW:=QPSHOW+IFTE(SIZE(QPSHOW)>0," + ","")+QLASTSHOW; END;
+   END;
+  END;
+  IF opcionRedox==4 THEN QH_VER_ECUACION(); END;
+  IF opcionRedox==5 THEN
+   IF SIZE(QREACT)==0 OR SIZE(QPROD)==0 THEN QH_AVISO("Complete ambos lados de la ecuacion."); ELSE
+    QRXN:=QREACT+">"+QPROD; QOP:=2001; QERR:=0; QTEXT:=""; PYTHON("import CHEM_ENGINE");
+    IF QERR THEN QH_AVISO(QTEXT); ELSE QH_RESULT("BALANCEO REDOX",QTEXT); END;
+   END;
+  END;
+  IF opcionRedox==6 THEN QREACT:=""; QPROD:=""; QRSHOW:=""; QPSHOW:=""; QH_AVISO("Ecuacion borrada."); END;
+ UNTIL opcionRedox==0;
+END;
+
+
+QH_ESPECIE()
+BEGIN
+ LOCAL textoFormula;
+ LOCAL textoVisible;
+ LOCAL opcionEspecie;
+ LOCAL numeroAtomico;
+ LOCAL subindice;
+ LOCAL indiceRadical;
+ LOCAL cargaIon;
+ LOCAL listaSimbolos;
+ LOCAL parteGrupo;
+ textoFormula:="";
+ textoVisible:="";
+ opcionEspecie:=1;
+ subindice:=1;
+ cargaIon:=0;
+ parteGrupo:="";
+ listaSimbolos:=TP_SIMBOLOS();
+ REPEAT
+  opcionEspecie:=QH_MENU("CONSTRUIR SUSTANCIA","ELEMENTOS, GRUPOS Y CARGA",{"AGREGAR ELEMENTO","AGREGAR RADICAL O GRUPO","FINALIZAR NEUTRA","FINALIZAR COMO ION","REINICIAR SUSTANCIA"});
+  IF opcionEspecie==1 THEN
+   numeroAtomico:=TP_SELECCIONAR("ELEMENTO DE LA SUSTANCIA");
+   IF numeroAtomico>0 THEN
+    subindice:=1; IF INPUT(subindice,"SUBINDICE","Cantidad de "+listaSimbolos(numeroAtomico),"1 no se escribe") THEN
+     IF subindice>=1 AND IP(subindice)==subindice THEN textoFormula:=textoFormula+listaSimbolos(numeroAtomico)+IFTE(subindice==1,"",STRING(subindice)); textoVisible:=textoVisible+listaSimbolos(numeroAtomico)+IFTE(subindice==1,"",STRING(subindice)); ELSE QH_AVISO("El subindice debe ser entero positivo."); END;
+    END;
+   END;
+  END;
+  IF opcionEspecie==2 THEN
+   indiceRadical:=QH_RADICALES();
+   IF indiceRadical>0 THEN
+    QRID:=indiceRadical; QOP:=1003; QERR:=0; QFORM:=""; PYTHON("import CHEM_ENGINE");
+    IF QERR THEN QH_AVISO(QTEXT); ELSE
+     subindice:=1; IF INPUT(subindice,"SUBINDICE DEL GRUPO","Cantidad de "+QFORM,"1 no se escribe") THEN
+      IF subindice>=1 AND IP(subindice)==subindice THEN parteGrupo:=IFTE(subindice==1,QFORM,"("+QFORM+")"+STRING(subindice)); textoFormula:=textoFormula+parteGrupo; textoVisible:=textoVisible+parteGrupo; ELSE QH_AVISO("El subindice debe ser entero positivo."); END;
+     END;
+    END;
+   END;
+  END;
+  IF opcionEspecie==3 THEN
+   IF SIZE(textoFormula)>0 THEN QLASTSHOW:=textoVisible; RETURN textoFormula; ELSE QH_AVISO("Agregue al menos un elemento."); END;
+  END;
+  IF opcionEspecie==4 THEN
+   IF SIZE(textoFormula)>0 THEN
+    cargaIon:=-1;
+    IF INPUT(cargaIon,"CARGA TOTAL DEL ION","Carga, no oxidacion","Ejemplo: -2 o +1") THEN
+     IF cargaIon<>0 AND IP(cargaIon)==cargaIon THEN QLASTSHOW:="["+textoVisible+"]^"+IFTE(cargaIon>0,"+","")+STRING(cargaIon); RETURN textoFormula+"{"+STRING(cargaIon)+"}"; ELSE QH_AVISO("La carga debe ser un entero distinto de cero."); END;
+    END;
+   ELSE QH_AVISO("Agregue al menos un elemento.");
+   END;
+  END;
+  IF opcionEspecie==5 THEN textoFormula:=""; textoVisible:=""; END;
+ UNTIL opcionEspecie==0;
+ RETURN "";
+END;
+
+QH_NOMENCLATURA()
+BEGIN
+ LOCAL modo:=1;
+ LOCAL z1;
+ LOCAL z2;
+ LOCAL v1:=2;
+ LOCAL v2:=-2;
+ REPEAT
+  modo:=QH_MENU("NOMENCLATURA","FORMULAR, INTERPRETAR Y NOMBRAR",{"COMPUESTO BINARIO","HIDROXIDO U OXOSAL","OXOACIDO","SUSTANCIA SIMPLE","CATALOGO DE RADICALES","CATALOGO DE ANIONES -URO"});
+  IF modo==1 THEN
+   z1:=TP_SELECCIONAR("PRIMER ELEMENTO");
+   IF z1>0 THEN
+    z2:=TP_SELECCIONAR("SEGUNDO ELEMENTO");
+    IF z2>0 THEN
+     IF INPUT({v1,v2},"NUMEROS DE OXIDACION",{"Primer elemento:","Segundo elemento:"},{"Use + para el positivo","Use - para el negativo"},{2,-2}) THEN
+      QZ1:=z1; QZ2:=z2; QV1:=v1; QV2:=v2;
+      QH_RUN_NOM();
+     END;
+    END;
+   END;
+  END;
+  IF modo==2 THEN QH_GRUPO(1); END;
+  IF modo==3 THEN QH_GRUPO(2); END;
+  IF modo==4 THEN QH_SIMPLE(); END;
+  IF modo==5 THEN QH_CATALOGO_RADICALES(); END;
+  IF modo==6 THEN QH_CATALOGO_URO(); END;
+ UNTIL modo==0;
+END;
+
+QH_SIMPLE()
+BEGIN
+ LOCAL z:=TP_SELECCIONAR("ELEMENTO PURO");
+ LOCAL s;
+ LOCAL n;
+ LOCAL ss:=TP_SIMBOLOS();
+ LOCAL nn:=TP_NOMBRES();
+ IF z==0 THEN RETURN; END;
+ s:=ss(z); n:=nn(z);
+ QH_DIBUJAR_FORMULA(s,1,0,"",1,0);
+ QH_RESULT("SUSTANCIA SIMPLE","1. INTERPRETACION"+CHAR(10)+"Formula: "+s+CHAR(10)+"Funcion: SUSTANCIA SIMPLE"+CHAR(10)+CHAR(10)+"2. OXIDACION"+CHAR(10)+"Todo elemento libre tiene numero de oxidacion 0."+CHAR(10)+s+" = 0"+CHAR(10)+CHAR(10)+"3. NOMBRE"+CHAR(10)+n);
+END;
+
+QH_RUN_NOM()
+BEGIN
+ QOP:=1001; QERR:=0; QTEXT:=""; QSYM1:=""; QSYM2:="";
+ PYTHON("import CHEM_ENGINE");
+ IF QERR THEN
+  QH_AVISO(QTEXT);
+ ELSE
+  QH_DIBUJAR_FORMULA(QSYM1,QSUB1,QV1,QSYM2,QSUB2,QV2);
+  QH_RESULT("NOMENCLATURA",QTEXT);
+ END;
+END;
+
+QH_RADICALES()
+BEGIN
+ LOCAL familia;
+ LOCAL seleccion;
+ LOCAL indices;
+ familia:=1;
+ familia:=QH_MENU("FAMILIA DEL RADICAL","SELECCIONE UNA FAMILIA",{"COMUNES","OXOANIONES DE CLORO","OXOANIONES DE BROMO Y YODO","TRANSICION Y CROMATOS","BORO, SILICIO, P, As, Se, Te","SALES ACIDAS","ESPECIALES INORGANICOS","ORGANICOS E HIDRONIO"});
+ IF familia==0 THEN RETURN 0; END;
+ seleccion:=1;
+ IF familia==1 THEN
+  indices:={1,2,3,4,5,6,7,15,16};
+  seleccion:=QH_MENU("RADICALES COMUNES","FORMULA, CARGA Y NOMBRE",{"OH(-1) HIDROXIDO","NO3(-1) NITRATO","NO2(-1) NITRITO","SO4(-2) SULFATO","SO3(-2) SULFITO","CO3(-2) CARBONATO","PO4(-3) FOSFATO","CN(-1) CIANURO","NH4(+1) AMONIO"});
+ END;
+ IF familia==2 THEN
+  indices:={8,9,10,11};
+  seleccion:=QH_MENU("OXOANIONES DE CLORO","FORMULA, CARGA Y NOMBRE",{"ClO(-1) HIPOCLORITO","ClO2(-1) CLORITO","ClO3(-1) CLORATO","ClO4(-1) PERCLORATO"});
+ END;
+ IF familia==3 THEN
+  indices:={17,18,19,20,21,22,23,24};
+  seleccion:=QH_MENU("BROMO Y YODO","FORMULA, CARGA Y NOMBRE",{"BrO(-1) HIPOBROMITO","BrO2(-1) BROMITO","BrO3(-1) BROMATO","BrO4(-1) PERBROMATO","IO(-1) HIPOYODITO","IO2(-1) YODITO","IO3(-1) YODATO","IO4(-1) PERYODATO"});
+ END;
+ IF familia==4 THEN
+  indices:={12,13,14,31,48,49,50,51,52};
+  seleccion:=QH_MENU("TRANSICION Y CROMATOS","FORMULA, CARGA Y NOMBRE",{"MnO4(-1) PERMANGANATO","CrO4(-2) CROMATO","Cr2O7(-2) DICROMATO","MnO4(-2) MANGANATO","MoO4(-2) MOLIBDATO","WO4(-2) WOLFRAMATO","VO3(-1) METAVANADATO","VO4(-3) ORTOVANADATO","AlO2(-1) ALUMINATO"});
+ END;
+ IF familia==5 THEN
+  indices:={25,26,27,28,29,30,37,46,47};
+  seleccion:=QH_MENU("OTROS OXOANIONES","FORMULA, CARGA Y NOMBRE",{"BO3(-3) BORATO","SiO3(-2) SILICATO","AsO3(-3) ARSENITO","AsO4(-3) ARSENATO","SeO3(-2) SELENITO","SeO4(-2) SELENATO","PO3(-3) FOSFITO","TeO3(-2) TELURITO","TeO4(-2) TELURATO"});
+ END;
+ IF familia==6 THEN
+  indices:={35,36,38,39,40};
+  seleccion:=QH_MENU("SALES ACIDAS","FORMULA, CARGA Y NOMBRE",{"HCO3(-1) BICARBONATO","HSO4(-1) BISULFATO","HPO4(-2) HIDROGENOFOSFATO","H2PO4(-1) DIHIDROGENOFOSFATO","HSO3(-1) BISULFITO"});
+ END;
+ IF familia==7 THEN
+  indices:={32,33,41,42,43,44,45};
+  seleccion:=QH_MENU("ESPECIALES INORGANICOS","FORMULA, CARGA Y NOMBRE",{"S2O3(-2) TIOSULFATO","C2O4(-2) OXALATO","OCN(-1) CIANATO","SCN(-1) TIOCIANATO","O2(-2) PEROXIDO","O2(-1) SUPEROXIDO","S2O8(-2) PERSULFATO"});
+ END;
+ IF familia==8 THEN
+  indices:={34,53,54,55};
+  seleccion:=QH_MENU("ORGANICOS E HIDRONIO","FORMULA, CARGA Y NOMBRE",{"CH3COO(-1) ACETATO","H3O(+1) HIDRONIO","HCOO(-1) FORMIATO","C6H5O7(-3) CITRATO"});
+ END;
+ IF seleccion==0 THEN RETURN 0; END;
+ RETURN indices(seleccion);
+END;
+
+QH_CATALOGO_RADICALES()
+BEGIN
+ LOCAL r:=QH_RADICALES();
+ IF r>0 THEN QH_AVISO("Este ion se puede usar en HIDROXIDO U OXOSAL. El programa lo interpreta como grupo y coloca parentesis cuando se repite."); END;
+END;
+
+QH_CATALOGO_URO()
+BEGIN
+ QH_RESULT("ANIONES TERMINADOS EN -URO","F(-1)  fluoruro"+CHAR(10)+"Cl(-1) cloruro"+CHAR(10)+"Br(-1) bromuro"+CHAR(10)+"I(-1)  yoduro"+CHAR(10)+"At(-1) astaturo"+CHAR(10)+"H(-1)  hidruro"+CHAR(10)+"S(-2)  sulfuro"+CHAR(10)+"Se(-2) seleniuro"+CHAR(10)+"Te(-2) telururo"+CHAR(10)+"N(-3)  nitruro"+CHAR(10)+"P(-3)  fosfuro"+CHAR(10)+"As(-3) arseniuro"+CHAR(10)+"Sb(-3) antimoniuro"+CHAR(10)+"C(-4)  carburo"+CHAR(10)+"Si(-4) siliciuro"+CHAR(10)+"B(-3)  boruro"+CHAR(10)+CHAR(10)+"Se eligen desde la tabla periodica al crear un compuesto binario.");
+END;
+
+QH_GRUPO(tipo)
+BEGIN
+ LOCAL r:=QH_RADICALES();
+ LOCAL z:=1;
+ LOCAL v:=1;
+ IF r==0 THEN RETURN; END;
+ IF tipo==2 THEN
+  IF r==1 OR r==16 THEN QH_AVISO("Seleccione un oxoanion para formar un oxoacido."); RETURN; END;
+ ELSE
+  z:=TP_SELECCIONAR("ELEMENTO O CATION");
+  IF z==0 THEN RETURN; END;
+  IF NOT INPUT(v,"CARGA DEL ELEMENTO","Numero de oxidacion","Use signo + o -") THEN RETURN; END;
+ END;
+ QZ1:=z; QV1:=v; QRID:=r; QMODE:=tipo; QOP:=1002; QERR:=0; QTEXT:="";
+ PYTHON("import CHEM_ENGINE");
+ IF QERR THEN QH_AVISO(QTEXT); ELSE
+  QH_DIBUJAR_GRUPO(QSYM1,QSUB1,QV1,QGROUP,QSUB2,QV2);
+  QH_RESULT("INTERPRETACION QUIMICA",QTEXT);
+ END;
+END;
+
+
+
+QH_UNIDAD2()
+BEGIN
+ LOCAL o:=1;
+ LOCAL z:=17;
+ REPEAT
+  o:=QH_MENU("TABLA PERIODICA","ELEMENTOS Y CONFIGURACION",{"TABLA INTERACTIVA","CONSULTAR ELEMENTO POR Z","ANALISIS ELECTRONICO"});
+  IF o==1 THEN
+   TP_TABLA();
+  END;
+  IF o==2 THEN
+   IF INPUT({z},"TABLA PERIODICA",{"Numero atomico Z:"}) THEN
+    IF z>=1 AND z<=118 AND IP(z)==z THEN
+     QH_EJECUTAR(402,z,0,0,0,"ELEMENTO");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
+   END;
+  END;
+  IF o==3 THEN
+   IF INPUT({z},"ANALISIS ELECTRONICO",{"Numero atomico Z:"}) THEN
+    IF z>=1 AND z<=118 AND IP(z)==z THEN
+     QH_EJECUTAR(402,z,0,0,0,"ANALISIS ELECTRONICO");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
+   END;
+  END;
+ UNTIL o==0;
+END;
+
+QH_EJECUTAR(codigo,valorA,valorB,valorC,valorD,encabezado)
+BEGIN
+ IF codigo==402 THEN
+  QH_CONFIG_ELECTRONICA(valorA,encabezado);
+  RETURN;
+ END;
+ QOP:=codigo;
+ QA:=valorA;
+ QB:=valorB;
+ QC:=valorC;
+ QD:=valorD;
+ QERR:=0;
+ QTEXT:="";
+ PYTHON("import CHEM_ENGINE");
+ IF QERR THEN
+  QH_AVISO(QTEXT);
+ ELSE
+  QH_RESULT(encabezado,QTEXT);
+ END;
+END;
+
+QH_SUPER(numero)
+BEGIN
+ LOCAL texto:=STRING(numero);
+ LOCAL salida:="";
+ LOCAL indice;
+ LOCAL digito;
+ LOCAL superiores:={"⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"};
+ FOR indice FROM 1 TO SIZE(texto) DO
+  digito:=INSTRING("0123456789",MID(texto,indice,1))-1;
+  salida:=salida+superiores(digito+1);
+ END;
+ RETURN salida;
+END;
+
+QH_CONFIG_ELECTRONICA(numeroAtomico,encabezado)
+BEGIN
+ LOCAL listaN:={1,2,2,3,3,4,3,4,5,4,5,6,4,5,6,7,5,6,7};
+ LOCAL listaL:={"s","s","p","s","p","s","d","p","s","d","p","s","f","d","p","s","f","d","p"};
+ LOCAL listaCap:={2,2,6,2,6,2,10,6,2,10,6,2,14,10,6,2,14,10,6};
+ LOCAL restante:=numeroAtomico;
+ LOCAL configuracion:="";
+ LOCAL niveles:={};
+ LOCAL letras:={};
+ LOCAL cantidades:={};
+ LOCAL indice;
+ LOCAL electrones;
+ LOCAL periodo:=0;
+ LOCAL grupo:=0;
+ LOCAL valencia:=0;
+ LOCAL ultimoNivel:=0;
+ LOCAL ultimaLetra:="";
+ LOCAL ultimoElectron:=0;
+ LOCAL simbolos:=TP_SIMBOLOS();
+ FOR indice FROM 1 TO SIZE(listaN) DO
+  IF restante>0 THEN
+   electrones:=MIN(restante,listaCap(indice));
+   IF SIZE(configuracion)>0 THEN configuracion:=configuracion+" "; END;
+   configuracion:=configuracion+STRING(listaN(indice))+listaL(indice)+QH_SUPER(electrones);
+   niveles:=CONCAT(niveles,{listaN(indice)});
+   letras:=CONCAT(letras,{listaL(indice)});
+   cantidades:=CONCAT(cantidades,{electrones});
+   restante:=restante-electrones;
+  END;
+ END;
+ ultimoNivel:=niveles(SIZE(niveles));
+ ultimaLetra:=letras(SIZE(letras));
+ ultimoElectron:=cantidades(SIZE(cantidades));
+ FOR indice FROM 1 TO SIZE(niveles) DO
+  IF niveles(indice)>periodo THEN periodo:=niveles(indice); END;
+ END;
+ FOR indice FROM 1 TO SIZE(niveles) DO
+  IF niveles(indice)==periodo THEN valencia:=valencia+cantidades(indice); END;
+ END;
+ IF ultimaLetra=="s" THEN grupo:=ultimoElectron; END;
+ IF ultimaLetra=="p" THEN grupo:=ultimoElectron+12; END;
+ IF ultimaLetra=="d" THEN grupo:=ultimoElectron+2; END;
+ IF ultimaLetra=="f" THEN grupo:=3; END;
+ IF numeroAtomico==2 THEN grupo:=18; END;
+ QH_RESULT(encabezado,
+  "1. ELEMENTO"+CHAR(10)+simbolos(numeroAtomico)+"   Z = "+STRING(numeroAtomico)+CHAR(10)+CHAR(10)+
+  "2. REGLA DE LLENADO"+CHAR(10)+"Aufbau + Pauli + Hund"+CHAR(10)+CHAR(10)+
+  "3. CONFIGURACION"+CHAR(10)+configuracion+CHAR(10)+CHAR(10)+
+  "4. ANALISIS"+CHAR(10)+"Grupo = "+STRING(grupo)+CHAR(10)+"Periodo = "+STRING(periodo)+CHAR(10)+
+  "Electrones de valencia = "+STRING(valencia)+CHAR(10)+"Familia = "+TP_FAMILIA(numeroAtomico,grupo)+CHAR(10)+
+  "Bloque = "+TP_BLOQUE(numeroAtomico,grupo));
+END;
+
+
+QH_ES_SECCION(linea)
+BEGIN
+ IF INSTRING(linea,"1. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"2. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"3. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"4. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"5. ")==1 THEN RETURN 1; END;
+ IF INSTRING(linea,"6. ")==1 THEN RETURN 1; END;
+ RETURN 0;
+END;
+
+QH_LINEAS(texto)
+BEGIN
+ LOCAL salida:={};
+ LOCAL resto:=texto;
+ LOCAL pos;
+ LOCAL linea;
+ REPEAT
+  pos:=INSTRING(resto,CHAR(10));
+  IF pos==0 THEN
+   linea:=resto; resto:="";
+  ELSE
+   IF pos==1 THEN linea:=" "; ELSE linea:=LEFT(resto,pos-1); END;
+   resto:=MID(resto,pos+1,SIZE(resto)-pos);
+  END;
+  salida:=CONCAT(salida,{linea});
+ UNTIL SIZE(resto)==0;
+ RETURN salida;
+END;
+
+QH_ATOMICA()
+BEGIN
+ LOCAL o:=1;
+ LOCAL a:=-1;
+ LOCAL b:=-1;
+ LOCAL c:=0;
+ REPEAT
+  o:=QH_MENU("ESTRUCTURA ATOMICA","PLANCK, BOHR, EINSTEIN Y ATOMO",{"PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA"});
+  IF o>=1 AND o<=3 THEN
+   a:=1; IF INPUT(a,"PLANCK","Dato conocido") THEN QH_EJECUTAR(100+o,a,0,0,0,"PLANCK"); END;
+  END;
+  IF o==4 THEN a:=1; IF INPUT(a,"MODELO DE BOHR","Nivel n") THEN QH_EJECUTAR(201,a,0,0,0,"BOHR"); END; END;
+  IF o==5 THEN a:=1;b:=2; IF INPUT({a,b},"TRANSICION",{"n inicial","n final"}) THEN QH_EJECUTAR(202,a,b,0,0,"TRANSICION"); END; END;
+  IF o>=6 AND o<=8 THEN a:=1; IF INPUT(a,"E=mc2","Dato conocido") THEN QH_EJECUTAR(295+o,a,0,0,0,"EINSTEIN"); END; END;
+  IF o==9 THEN a:=17;b:=35;c:=-1; IF INPUT({a,b,c},"ATOMO / ION",{"Z","A","Carga"}) THEN QH_EJECUTAR(401,a,b,c,0,"ATOMO / ION"); END; END;
+  IF o==10 THEN
+   a:=17;
+   IF INPUT({a},"CONFIGURACION ELECTRONICA",{"Numero atomico Z:"}) THEN
+    IF a>=1 AND a<=118 AND IP(a)==a THEN
+     QH_EJECUTAR(402,a,0,0,0,"CONFIGURACION");
+    ELSE
+     QH_AVISO("Z debe ser un entero entre 1 y 118.");
+    END;
+   END;
+  END;
+ UNTIL o==0;
+END;
+
+TP_PAGINA(titulo,lineas)
+BEGIN
+ LOCAL inicio:=1;
+ LOCAL tecla:=0;
+ LOCAL j;
+ LOCAL total:=SIZE(lineas);
+ REPEAT
+  RECT_P(RGB(226,231,232));
+  RECT_P(0,0,319,29,RGB(33,39,40),RGB(33,39,40));
+  TEXTOUT_P(titulo,7,6,2,RGB(255,255,255));
+  FOR j FROM 0 TO 9 DO
+   IF inicio+j<=total THEN
+    TEXTOUT_P(lineas(inicio+j),7,34+j*18,1,RGB(20,28,38));
+   END;
+  END;
+  RECT_P(0,216,105,239,RGB(179,38,30),RGB(179,38,30));
+  RECT_P(107,216,211,239,RGB(33,123,156),RGB(33,123,156));
+  RECT_P(213,216,319,239,RGB(33,123,156),RGB(33,123,156));
+  TEXTOUT_P("< VOLVER",20,222,1,RGB(255,255,255));
+  TEXTOUT_P("ARRIBA",130,222,1,RGB(255,255,255));
+  TEXTOUT_P("ABAJO",238,222,1,RGB(255,255,255));
+  tecla:=TP_ENTRADA_UI();
+  IF tecla==12 OR tecla==8 THEN inicio:=MIN(total, inicio+10); END;
+  IF tecla==2 OR tecla==7 THEN inicio:=MAX(1,inicio-10); END;
+ UNTIL tecla==4 OR tecla==19;
+END;
+
+TP_ENTRADA_UI()
+BEGIN
+ LOCAL teclaLeida:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ REPEAT
+  teclaLeida:=GETKEY;
+ UNTIL teclaLeida==-1;
+ MOUSE(0);
+ MOUSE(1);
+ WAIT(0.16);
+ REPEAT
+  teclaLeida:=GETKEY;
+  IF teclaLeida<>-1 THEN RETURN teclaLeida; END;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX>=0 AND toqueY>=216 THEN
+   IF toqueX<=105 THEN RETURN 4; END;
+   IF toqueX<=211 THEN RETURN 2; END;
+   RETURN 12;
+  END;
+  WAIT(0.05);
+ UNTIL teclaLeida==-999;
+END;
+
+TP_LIMPIAR_BUFFER()
+BEGIN
+ LOCAL teclaPendiente:=0;
+ REPEAT
+  teclaPendiente:=GETKEY;
+ UNTIL teclaPendiente==-1;
+ MOUSE(0);
+ MOUSE(1);
+ WAIT(0.15);
+END;
+
+TP_SIMBOLOS()
+BEGIN
+ RETURN {"H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"};
+END;
+
+TP_NOMBRES()
+BEGIN
+ RETURN {"Hidrogeno","Helio","Litio","Berilio","Boro","Carbono","Nitrogeno","Oxigeno","Fluor","Neon","Sodio","Magnesio","Aluminio","Silicio","Fosforo","Azufre","Cloro","Argon","Potasio","Calcio","Escandio","Titanio","Vanadio","Cromo","Manganeso","Hierro","Cobalto","Niquel","Cobre","Zinc","Galio","Germanio","Arsenico","Selenio","Bromo","Kripton","Rubidio","Estroncio","Itrio","Circonio","Niobio","Molibdeno","Tecnecio","Rutenio","Rodio","Paladio","Plata","Cadmio","Indio","Estano","Antimonio","Telurio","Yodo","Xenon","Cesio","Bario","Lantano","Cerio","Praseodimio","Neodimio","Prometio","Samario","Europio","Gadolinio","Terbio","Disprosio","Holmio","Erbio","Tulio","Iterbio","Lutecio","Hafnio","Tantalio","Wolframio","Renio","Osmio","Iridio","Platino","Oro","Mercurio","Talio","Plomo","Bismuto","Polonio","Astato","Radon","Francio","Radio","Actinio","Torio","Protactinio","Uranio","Neptunio","Plutonio","Americio","Curio","Berkelio","Californio","Einstenio","Fermio","Mendelevio","Nobelio","Lawrencio","Rutherfordio","Dubnio","Seaborgio","Bohrio","Hassio","Meitnerio","Darmstadtio","Roentgenio","Copernicio","Nihonio","Flerovio","Moscovio","Livermorio","Teneso","Oganeson"};
+END;
+
+TP_MASAS()
+BEGIN
+ RETURN {1.008,4.0026,6.94,9.0122,10.81,12.011,14.007,15.999,18.998,20.180,22.990,24.305,26.982,28.085,30.974,32.06,35.45,39.948,39.098,40.078,44.956,47.867,50.942,51.996,54.938,55.845,58.933,58.693,63.546,65.38,69.723,72.630,74.922,78.971,79.904,83.798,85.468,87.62,88.906,91.224,92.906,95.95,98,101.07,102.91,106.42,107.87,112.41,114.82,118.71,121.76,127.60,126.90,131.29,132.91,137.33,138.91,140.12,140.91,144.24,145,150.36,151.96,157.25,158.93,162.50,164.93,167.26,168.93,173.05,174.97,178.49,180.95,183.84,186.21,190.23,192.22,195.08,196.97,200.59,204.38,207.2,208.98,209,210,222,223,226,227,232.04,231.04,238.03,237,244,243,247,247,251,252,257,258,259,266,267,268,269,270,269,278,281,282,285,286,289,290,293,294,294};
+END;
+
+TP_GRUPOS()
+BEGIN
+ RETURN {1,18,1,2,13,14,15,16,17,18,1,2,13,14,15,16,17,18,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18};
+END;
+
+TP_PERIODOS()
+BEGIN
+ RETURN {1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7};
+END;
+
+TP_CLASE(z)
+BEGIN
+ IF z==1 THEN RETURN "No metal"; END;
+ IF z==5 OR z==14 OR z==32 OR z==33 OR z==51 OR z==52 OR z==84 THEN RETURN "Metaloide"; END;
+ IF z==6 OR z==7 OR z==8 OR z==9 OR z==15 OR z==16 OR z==17 OR z==34 OR z==35 OR z==53 OR z==85 OR z==117 THEN RETURN "No metal"; END;
+ IF z==2 OR z==10 OR z==18 OR z==36 OR z==54 OR z==86 OR z==118 THEN RETURN "Gas noble"; END;
+ RETURN "Metal";
+END;
+
+TP_FAMILIA(z,g)
+BEGIN
+ IF z>=57 AND z<=71 THEN RETURN "Lantanido"; END;
+ IF z>=89 AND z<=103 THEN RETURN "Actinido"; END;
+ IF g==1 THEN RETURN IFTE(z==1,"No metal","Alcalino"); END;
+ IF g==2 THEN RETURN "Alcalinoterreo"; END;
+ IF g>=3 AND g<=12 THEN RETURN "Metal de transicion"; END;
+ IF g==13 THEN RETURN "Familia del boro"; END;
+ IF g==14 THEN RETURN "Familia del carbono"; END;
+ IF g==15 THEN RETURN "Nitrogenoideos"; END;
+ IF g==16 THEN RETURN "Calcogenos"; END;
+ IF g==17 THEN RETURN "Halogenos"; END;
+ IF g==18 THEN RETURN "Gases nobles"; END;
+ RETURN "Bloque f";
+END;
+
+TP_BLOQUE(z,g)
+BEGIN
+ IF z>=57 AND z<=71 OR z>=89 AND z<=103 THEN RETURN "f"; END;
+ IF g<=2 THEN RETURN "s"; END;
+ IF g>=13 THEN RETURN "p"; END;
+ RETURN "d";
+END;
+
+// listaGrupos y listaPeriodos se reciben como parametro (ya calculados una
+// sola vez por el llamador) en vez de recalcularse en cada llamada.
+TP_POS(z,listaGrupos,listaPeriodos)
+BEGIN
+ IF z>=58 AND z<=71 THEN RETURN {z-54,8}; END;
+ IF z>=90 AND z<=103 THEN RETURN {z-86,9}; END;
+ RETURN {listaGrupos(z),listaPeriodos(z)};
+END;
+
+// Paleta de colores por categoria quimica. Se apoya en TP_CLASE (metal/no
+// metal/metaloide/gas noble) y en TP_FAMILIA (grupo especifico) para dar
+// mas variedad que solo 3-4 tonos.
+TP_COLOR(z,listaGrupos)
+BEGIN
+ LOCAL clase:=TP_CLASE(z);
+ LOCAL familia:=TP_FAMILIA(z,listaGrupos(z));
+ IF clase=="Gas noble" THEN RETURN RGB(154,111,190); END;
+ IF clase=="Metaloide" THEN RETURN RGB(242,179,64); END;
+ IF familia=="Lantanido" THEN RETURN RGB(65,164,184); END;
+ IF familia=="Actinido" THEN RETURN RGB(100,90,180); END;
+ IF familia=="Halogenos" THEN RETURN RGB(70,180,170); END;
+ IF clase=="No metal" THEN RETURN RGB(72,169,108); END;
+ IF familia=="Alcalino" THEN RETURN RGB(219,80,80); END;
+ IF familia=="Alcalinoterreo" THEN RETURN RGB(230,150,60); END;
+ IF familia=="Metal de transicion" THEN RETURN RGB(70,130,190); END;
+ RETURN RGB(150,160,170);
+END;
+
+TP_SELECCIONAR(titulo)
+BEGIN
+ LOCAL simbolos:=TP_SIMBOLOS();
+ LOCAL nombres:=TP_NOMBRES();
+ LOCAL grupos:=TP_GRUPOS();
+ LOCAL periodos:=TP_PERIODOS();
+ LOCAL sel:=1;
+ LOCAL nuevo:=1;
+ LOCAL k:=-1;
+ LOCAL x:=-1;
+ LOCAL y:=-1;
+ LOCAL z;
+ LOCAL pos;
+ LOCAL cx;
+ LOCAL cy;
+ TP_DIBUJAR_TABLA(sel,simbolos,nombres,grupos,periodos);
+ RECT_P(0,0,319,22,#212728,#212728);
+ TEXTOUT_P(titulo+": "+simbolos(sel),5,4,1,#FFFFFF);
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  k:=GETKEY; x:=MOUSE(0); y:=MOUSE(1); nuevo:=sel;
+  IF k==7 THEN nuevo:=TP_MOVER(sel,7,grupos,periodos); END;
+  IF k==8 THEN nuevo:=TP_MOVER(sel,8,grupos,periodos); END;
+  IF k==2 THEN nuevo:=TP_MOVER(sel,2,grupos,periodos); END;
+  IF k==12 THEN nuevo:=TP_MOVER(sel,12,grupos,periodos); END;
+  IF k==30 THEN RETURN sel; END;
+  IF k==4 OR k==19 THEN RETURN 0; END;
+  IF x>=0 AND y>=216 THEN
+   IF x<=104 THEN RETURN 0; END;
+   IF x>=211 THEN RETURN sel; END;
+  END;
+  IF x>=0 AND y>=25 AND y<=205 THEN
+   FOR z FROM 1 TO 118 DO
+    pos:=TP_POS(z,grupos,periodos);
+    cx:=2+(pos(1)-1)*17; cy:=25+(pos(2)-1)*20;
+    IF x>=cx AND x<=cx+15 AND y>=cy AND y<=cy+17 THEN nuevo:=z; END;
+   END;
+  END;
+  IF nuevo<>sel THEN
+   TP_DIBUJAR_CELDA(sel,0,simbolos,grupos,periodos);
+   sel:=nuevo;
+   TP_DIBUJAR_CELDA(sel,1,simbolos,grupos,periodos);
+   RECT_P(0,0,319,22,#212728,#212728);
+   TEXTOUT_P(titulo+": "+simbolos(sel)+" "+nombres(sel),5,4,1,#FFFFFF);
+  END;
+  WAIT(0.05);
+ UNTIL k==-999;
+END;
+
+EXPORT TP_TABLA()
+BEGIN
+ LOCAL listaSimbolos:=TP_SIMBOLOS();
+ LOCAL listaNombres:=TP_NOMBRES();
+ LOCAL listaGrupos:=TP_GRUPOS();
+ LOCAL listaPeriodos:=TP_PERIODOS();
+ LOCAL posicion;
+ LOCAL coordX;
+ LOCAL coordY;
+ LOCAL numeroAtomico;
+ LOCAL seleccionado:=1;
+ LOCAL nuevoSeleccionado:=1;
+ LOCAL teclaLeida:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ LOCAL toqueActivo:=0;
+ LOCAL salir:=0;
+ TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  teclaLeida:=GETKEY;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX<0 THEN toqueActivo:=0; END;
+  IF teclaLeida==4 OR teclaLeida==19 THEN salir:=1; END;
+  nuevoSeleccionado:=seleccionado;
+  IF teclaLeida==7 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,7,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==8 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,8,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==2 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,2,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==12 THEN nuevoSeleccionado:=TP_MOVER(seleccionado,12,listaGrupos,listaPeriodos); END;
+  IF teclaLeida==30 THEN
+   TP_FICHA(seleccionado);
+   TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+   TP_LIMPIAR_BUFFER();
+  END;
+  IF toqueX>=0 AND toqueActivo==0 THEN
+   toqueActivo:=1;
+   IF toqueY>=216 THEN
+    IF toqueX<=104 THEN salir:=1; END;
+    IF toqueX>=211 THEN
+     TP_FICHA(seleccionado);
+     TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos);
+     TP_LIMPIAR_BUFFER();
+    END;
+   END;
+   IF toqueY>=25 AND toqueY<=205 THEN
+    FOR numeroAtomico FROM 1 TO 118 DO
+     posicion:=TP_POS(numeroAtomico,listaGrupos,listaPeriodos);
+     coordX:=2+(posicion(1)-1)*17;
+     coordY:=25+(posicion(2)-1)*20;
+     IF toqueX>=coordX AND toqueX<=coordX+15 AND toqueY>=coordY AND toqueY<=coordY+17 THEN nuevoSeleccionado:=numeroAtomico; END;
+    END;
+   END;
+  END;
+  IF nuevoSeleccionado<>seleccionado THEN
+   TP_DIBUJAR_CELDA(seleccionado,0,listaSimbolos,listaGrupos,listaPeriodos);
+   seleccionado:=nuevoSeleccionado;
+   TP_DIBUJAR_CELDA(seleccionado,1,listaSimbolos,listaGrupos,listaPeriodos);
+   TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres);
+  END;
+  WAIT(0.04);
+ UNTIL salir==1;
+END;
+
+
+
+TP_DIBUJAR_CELDA(numeroAtomico,marcada,listaSimbolos,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL posicion:=TP_POS(numeroAtomico,listaGrupos,listaPeriodos);
+ LOCAL coordX:=2+(posicion(1)-1)*17;
+ LOCAL coordY:=25+(posicion(2)-1)*20;
+ LOCAL colorCelda:=TP_COLOR(numeroAtomico,listaGrupos);
+ RECT_P(coordX-1,coordY-1,coordX+16,coordY+18,RGB(226,231,232),RGB(226,231,232));
+ RECT_P(coordX,coordY,coordX+15,coordY+17,colorCelda,colorCelda);
+ IF marcada THEN RECT_P(coordX-1,coordY-1,coordX+16,coordY+18,RGB(0,0,0)); END;
+ TEXTOUT_P(listaSimbolos(numeroAtomico),coordX+1,coordY+4,0,RGB(255,255,255));
+END;
+
+TP_MOVER(actual,direccion,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL posicionActual:=TP_POS(actual,listaGrupos,listaPeriodos);
+ LOCAL posicionCandidata;
+ LOCAL candidato;
+ LOCAL mejor:=actual;
+ LOCAL puntaje:=999;
+ LOCAL nuevoPuntaje;
+ FOR candidato FROM 1 TO 118 DO
+  posicionCandidata:=TP_POS(candidato,listaGrupos,listaPeriodos);
+  IF direccion==7 AND posicionCandidata(2)==posicionActual(2) AND posicionCandidata(1)<posicionActual(1) THEN nuevoPuntaje:=posicionActual(1)-posicionCandidata(1); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==8 AND posicionCandidata(2)==posicionActual(2) AND posicionCandidata(1)>posicionActual(1) THEN nuevoPuntaje:=posicionCandidata(1)-posicionActual(1); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==2 AND posicionCandidata(2)<posicionActual(2) THEN nuevoPuntaje:=ABS(posicionCandidata(1)-posicionActual(1))*3+posicionActual(2)-posicionCandidata(2); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+  IF direccion==12 AND posicionCandidata(2)>posicionActual(2) THEN nuevoPuntaje:=ABS(posicionCandidata(1)-posicionActual(1))*3+posicionCandidata(2)-posicionActual(2); IF nuevoPuntaje<puntaje THEN puntaje:=nuevoPuntaje; mejor:=candidato; END; END;
+ END;
+ RETURN mejor;
+END;
+
+
+// ======================================================================
+// QUIMICA HYBRID - MODULO DE INTERFAZ v3
+// Reemplaza las funciones de interfaz del programa. El motor Python
+// (#PYTHON ... #END) NO se toca.
+//
+// BORRAR del programa original estas funciones y pegar las de abajo:
+//   QH_MENU, QH_MENU_FONDO, QH_MENU_LISTA, QH_MENU_TARJETA, QH_MENU_PIE,
+//   QH_CONFIG, QH_RESULT, QH_VER_ECUACION, QH_DIBUJAR_FORMULA,
+//   QH_DIBUJAR_GRUPO, TP_CABECERA_TABLA, TP_DIBUJAR_TABLA, TP_FICHA
+// (TP_PAGINA y TP_ENTRADA_UI ya no se usan; pueden quedarse o borrarse)
+//
+// Luego, en TODO el programa: buscar  MSGBOX(  y reemplazar por  QH_AVISO(
+// ======================================================================
+
+// ---------------------------------------------------------------- AVISOS
+
+// Corta un texto en lineas de maximo n caracteres (por espacios).
+QH_ENVOLVER(t,n)
+BEGIN
+ LOCAL salida:={};
+ LOCAL resto:=t;
+ LOCAL k;
+ WHILE SIZE(resto)>n DO
+  k:=n;
+  WHILE k>1 AND MID(resto,k,1)<>" " DO k:=k-1; END;
+  IF k==1 THEN k:=n; END;
+  salida:=CONCAT(salida,{LEFT(resto,k)});
+  resto:=MID(resto,k+1,SIZE(resto)-k);
+ END;
+ RETURN CONCAT(salida,{resto});
+END;
+
+// Tarjeta de aviso NO bloqueante: aparece abajo, se cierra sola
+// (o con cualquier tecla/toque) y la pantalla de fondo se mantiene.
+// tipo: 1 = exito (verde), 2 = aviso (ambar), 3 = error (rojo), 4 = info
+QH_TOAST(texto,tipo)
+BEGIN
+ LOCAL lineas:=QH_ENVOLVER(texto,30);
+ LOCAL n:=MIN(3,SIZE(lineas));
+ LOCAL h:=n*16+16;
+ LOCAL y0:=208-h;
+ LOCAL color:=#217B9C;
+ LOCAL simbolo:="i";
+ LOCAL indiceLinea;
+ LOCAL ciclos:=0;
+ LOCAL fin:=0;
+ IF tipo==1 THEN color:=#2E7D5B; simbolo:="OK"; END;
+ IF tipo==2 THEN color:=#C98A1B; simbolo:="!"; END;
+ IF tipo==3 THEN color:=#B3261E; simbolo:="X"; END;
+ RECT_P(8,y0-2,311,210,color,#FFFFFF);
+ RECT_P(8,y0-2,50,210,color,color);
+ TEXTOUT_P(simbolo,IFTE(SIZE(simbolo)==2,17,23),y0+IP(h/2)-8,2,#FFFFFF);
+ FOR indiceLinea FROM 1 TO n DO
+  TEXTOUT_P(lineas(indiceLinea),58,y0+6+(indiceLinea-1)*16,1,#142837);
+ END;
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  WAIT(0.05);
+  ciclos:=ciclos+1;
+  IF GETKEY<>-1 OR MOUSE(0)>=0 THEN fin:=1; END;
+ UNTIL fin==1 OR ciclos>26+12*n;
+ WAIT(0.2);
+END;
+
+// Sustituto directo de MSGBOX: elige el tipo segun el texto.
+QH_AVISO(texto)
+BEGIN
+ LOCAL tipo:=2;
+ IF INSTRING(texto,"activado")>0 OR INSTRING(texto,"borrada")>0 THEN tipo:=1; END;
+ IF INSTRING(texto,"Error")>0 THEN tipo:=3; END;
+ QH_TOAST(texto,tipo);
+END;
+
+// ----------------------------------------------------------------- MENUS
+
+QH_MENU(titulo,subtitulo,opciones)
+BEGIN
+ RETURN QH_MENU2(titulo,subtitulo,opciones,{},1,"");
+END;
+
+// activos : lista de 0/1 (misma longitud que opciones) para mostrar la
+//           insignia "ACTIVO"; use {} si no hace falta.
+// inicial : opcion que aparece seleccionada al abrir.
+// aviso   : si no esta vacio, muestra una tarjeta de exito SIN salir del menu.
+QH_MENU2(titulo,subtitulo,opciones,activos,inicial,aviso)
+BEGIN
+ LOCAL total:=SIZE(opciones);
+ LOCAL porPagina:=4;
+ LOCAL primera:=1;
+ LOCAL primeraAnterior:=1;
+ LOCAL seleccionado:=MAX(1,MIN(total,inicial));
+ LOCAL anterior:=1;
+ LOCAL tecla:=-1;
+ LOCAL toqueX:=-1;
+ LOCAL toqueY:=-1;
+ LOCAL toqueActivo:=0;
+ LOCAL indice;
+ LOCAL inicioY:=48;
+ LOCAL alto:=35;
+ LOCAL espacio:=6;
+ LOCAL posY;
+ WHILE SIZE(activos)<total DO
+  activos:=CONCAT(activos,{0});
+ END;
+ IF total==1 THEN inicioY:=82; alto:=56; END;
+ IF total==2 THEN inicioY:=67; alto:=56; espacio:=14; END;
+ IF total==3 THEN inicioY:=52; alto:=43; espacio:=9; END;
+ IF seleccionado>porPagina THEN primera:=seleccionado-porPagina+1; END;
+ QH_MENU_FONDO(titulo,subtitulo);
+ QH_MENU_LISTA(opciones,activos,seleccionado,primera,inicioY,alto,espacio);
+ QH_MENU_CONTADOR(seleccionado,total);
+ QH_MENU_PIE("VOLVER","FLECHAS","ABRIR");
+ IF SIZE(aviso)>0 THEN
+  QH_TOAST(aviso,1);
+  QH_MENU_LISTA(opciones,activos,seleccionado,primera,inicioY,alto,espacio);
+ END;
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  tecla:=GETKEY;
+  toqueX:=MOUSE(0);
+  toqueY:=MOUSE(1);
+  IF toqueX<0 THEN toqueActivo:=0; END;
+  anterior:=seleccionado;
+  primeraAnterior:=primera;
+  IF tecla==2 OR tecla==7 THEN seleccionado:=MAX(1,seleccionado-1); END;
+  IF tecla==12 OR tecla==8 THEN seleccionado:=MIN(total,seleccionado+1); END;
+  IF seleccionado<primera THEN primera:=seleccionado; END;
+  IF seleccionado>primera+porPagina-1 THEN primera:=seleccionado-porPagina+1; END;
+  IF anterior<>seleccionado THEN
+   IF primera<>primeraAnterior THEN
+    QH_MENU_LISTA(opciones,activos,seleccionado,primera,inicioY,alto,espacio);
+   ELSE
+    QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,activos(anterior));
+    QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,activos(seleccionado));
+   END;
+   QH_MENU_CONTADOR(seleccionado,total);
+  END;
+  IF tecla==30 THEN RETURN seleccionado; END;
+  IF tecla==4 OR tecla==19 THEN RETURN 0; END;
+  IF toqueX>=0 AND toqueActivo==0 THEN
+   toqueActivo:=1;
+   IF toqueY>=216 AND toqueX<=104 THEN RETURN 0; END;
+   IF toqueY>=216 AND toqueX>=211 THEN RETURN seleccionado; END;
+   FOR indice FROM primera TO MIN(total,primera+porPagina-1) DO
+    posY:=inicioY+(indice-primera)*(alto+espacio);
+    IF toqueY>=posY AND toqueY<=posY+alto THEN
+     IF seleccionado==indice THEN RETURN indice; END;
+     anterior:=seleccionado;
+     seleccionado:=indice;
+     QH_MENU_TARJETA(anterior,opciones(anterior),0,anterior-primera+1,inicioY,alto,espacio,activos(anterior));
+     QH_MENU_TARJETA(seleccionado,opciones(seleccionado),1,seleccionado-primera+1,inicioY,alto,espacio,activos(seleccionado));
+     QH_MENU_CONTADOR(seleccionado,total);
+    END;
+   END;
+  END;
+  WAIT(0.04);
+ UNTIL tecla==-999;
+END;
+
+QH_MENU_FONDO(titulo,subtitulo)
+BEGIN
+ RECT_P(#E2E7E8);
+ RECT_P(0,0,319,38,#212728,#212728);
+ RECT_P(0,38,319,41,#217B9C,#217B9C);
+ TEXTOUT_P(titulo,12,6,2,#FFFFFF);
+ TEXTOUT_P(subtitulo,13,24,0,#9FD3E6);
+END;
+
+// Contador "n/total" en la esquina del encabezado (solo si hay paginas).
+QH_MENU_CONTADOR(sel,total)
+BEGIN
+ IF total>4 THEN
+  RECT_P(262,4,318,22,#212728,#212728);
+  TEXTOUT_P(STRING(sel)+"/"+STRING(total),274,8,1,#E8F2F8);
+ END;
+END;
+
+QH_MENU_LISTA(opciones,activos,seleccionado,primera,inicioY,alto,espacio)
+BEGIN
+ LOCAL indice;
+ LOCAL total:=SIZE(opciones);
+ LOCAL ultimo:=MIN(total,primera+3);
+ RECT_P(0,42,319,214,#E2E7E8,#E2E7E8);
+ FOR indice FROM primera TO ultimo DO
+  QH_MENU_TARJETA(indice,opciones(indice),indice==seleccionado,indice-primera+1,inicioY,alto,espacio,activos(indice));
+ END;
+ IF total>4 THEN
+  IF primera>1 THEN TRIANGLE_P(310,50,303,62,317,62,#217B9C); END;
+  IF primera+3<total THEN TRIANGLE_P(310,206,303,194,317,194,#217B9C); END;
+ END;
+END;
+
+// IMPORTANTE: RECT_P con 5 argumentos RELLENA con ese color. Por eso antes
+// se veia el fondo gris-azulado y el texto "resaltado". Aqui siempre se
+// usan los 6 argumentos (borde, relleno).
+QH_MENU_TARJETA(indice,texto,marcada,fila,inicioY,alto,espacio,activa)
+BEGIN
+ LOCAL posY:=inicioY+(fila-1)*(alto+espacio);
+ LOCAL fondo:=#FFFFFF;
+ LOCAL borde:=#BECAD4;
+ LOCAL tinta:=#25364A;
+ LOCAL chip:=#217B9C;
+ LOCAL ancho:=IFTE(activa==1,165,215);
+ LOCAL ty:=posY+IP(alto/2)-6;
+ RECT_P(8,posY-2,297,posY+alto+2,#E2E7E8,#E2E7E8);
+ IF marcada THEN fondo:=#217B9C; borde:=#142837; tinta:=#FFFFFF; chip:=#252C2E; END;
+ RECT_P(12,posY,293,posY+alto,borde,fondo);
+ IF marcada THEN RECT_P(12,posY,17,posY+alto,#F2B340,#F2B340); END;
+ RECT_P(24,posY+7,48,posY+alto-7,chip,chip);
+ TEXTOUT_P(STRING(indice),IFTE(indice>9,29,33),ty,1,#FFFFFF);
+ TEXTOUT_P(texto,58,ty,1,tinta,ancho,fondo);
+ IF activa==1 THEN
+  RECT_P(228,posY+9,278,posY+alto-9,#2E7D5B,#2E7D5B);
+  TEXTOUT_P("ACTIVO",233,posY+IP(alto/2)-4,0,#FFFFFF);
+ END;
+ IF marcada THEN TEXTOUT_P(">",282,ty,2,#FFFFFF); END;
+END;
+
+QH_MENU_PIE(izquierda,centro,derecha)
+BEGIN
+ RECT_P(0,216,104,239,#252C2E,#252C2E);
+ RECT_P(106,216,209,239,#394345,#394345);
+ RECT_P(211,216,319,239,#217B9C,#217B9C);
+ TEXTOUT_P("< "+izquierda,13,222,1,#FFFFFF);
+ TEXTOUT_P(centro,127,222,1,#FFFFFF);
+ TEXTOUT_P(derecha+" >",232,222,1,#FFFFFF);
+END;
+
+// --------------------------------------------------------- CONFIGURACION
+// Ya no sale de la pantalla: el perfil elegido se marca con "ACTIVO" y
+// aparece una tarjeta verde que se cierra sola.
+QH_CONFIG()
+BEGIN
+ LOCAL op:=1;
+ LOCAL sel:=1;
+ LOCAL aviso:="";
+ LOCAL marcas;
+ REPEAT
+  marcas:={0,IFTE(CFG_PROFILE==1,1,0),IFTE(CFG_PROFILE==2,1,0)};
+  op:=QH_MENU2("CONSTANTES FISICAS","Perfil activo: "+IFTE(CFG_PROFILE==1,"ACADEMICO (HPP)","EXACTO / ALTA PRECISION"),{"VER CONSTANTES ACTIVAS","USAR VALORES ACADEMICOS","USAR VALORES EXACTOS"},marcas,sel,aviso);
+  aviso:="";
+  IF op>0 THEN sel:=op; END;
+  IF op==1 THEN
+   QH_RESULT("CONSTANTES ACTIVAS","1. PERFIL"+CHAR(10)+IFTE(CFG_PROFILE==1,"ACADEMICO (HPP)","EXACTO / ALTA PRECISION")+CHAR(10)+CHAR(10)+"2. CONSTANTES"+CHAR(10)+"h = "+STRING(CFG_H)+" J·s"+CHAR(10)+"c = "+STRING(CFG_C)+" m·s⁻¹"+CHAR(10)+"1 eV = "+STRING(CFG_EV)+" J"+CHAR(10)+"1 J = "+STRING(CFG_ERG)+" erg"+CHAR(10)+"a₀ = "+STRING(CFG_A0)+" Å"+CHAR(10)+"v₀ = "+STRING(CFG_V0)+" cm·s⁻¹"+CHAR(10)+"R = "+STRING(CFG_RY)+" eV");
+  END;
+  IF op==2 THEN
+   CFG_PROFILE:=1; CFG_H:=6.63E-34; CFG_C:=3E8; CFG_EV:=1.6E-19; CFG_ERG:=1E7; CFG_A0:=0.529; CFG_V0:=2.18E8; CFG_RY:=13.6;
+   aviso:="Perfil ACADEMICO activado. Se usan los valores del HPP original.";
+  END;
+  IF op==3 THEN
+   CFG_PROFILE:=2; CFG_H:=6.62607015E-34; CFG_C:=299792458; CFG_EV:=1.602176634E-19; CFG_ERG:=1E7; CFG_A0:=0.529177210544; CFG_V0:=2.18769126364E8; CFG_RY:=13.60569312299;
+   aviso:="Perfil EXACTO activado. Alta precision.";
+  END;
+ UNTIL op==0;
+END;
+
+// -------------------------------------------------------------- RESULTADOS
+
+// Ajusta lineas largas (ya no se cortan en el borde de la pantalla).
+QH_AJUSTAR(lineas)
+BEGIN
+ LOCAL salida:={};
+ LOCAL indiceLinea;
+ FOR indiceLinea FROM 1 TO SIZE(lineas) DO
+  IF SIZE(lineas(indiceLinea))>36 THEN
+   salida:=CONCAT(salida,QH_ENVOLVER(lineas(indiceLinea),36));
+  ELSE
+   salida:=CONCAT(salida,{lineas(indiceLinea)});
+  END;
+ END;
+ RETURN salida;
+END;
+
+QH_RESULT(titulo,texto)
+BEGIN
+ LOCAL lineas:=QH_AJUSTAR(QH_LINEAS(texto));
+ LOCAL primero:=1;
+ LOCAL maximo:=MAX(1,SIZE(lineas)-7);
+ LOCAL indiceLinea;
+ LOCAL y;
+ LOCAL tecla:=-1;
+ LOCAL mx;
+ LOCAL my;
+ LOCAL tocando:=0;
+ LOCAL ultimoY:=0;
+ LOCAL nuevo;
+ LOCAL redibujar:=1;
+ TP_LIMPIAR_BUFFER();
+ REPEAT
+  IF redibujar THEN
+   RECT_P(#E2E7E8);
+   RECT_P(0,0,319,38,#212728,#212728);
+   RECT_P(0,38,319,41,#217B9C,#217B9C);
+   TEXTOUT_P(titulo,10,8,2,#FFFFFF);
+   FOR indiceLinea FROM 0 TO 7 DO
+    IF primero+indiceLinea<=SIZE(lineas) THEN
+     y:=50+indiceLinea*20;
+     IF QH_ES_SECCION(lineas(primero+indiceLinea)) THEN
+      RECT_P(4,y-3,300,y+14,#CFE3EC,#CFE3EC);
+      TEXTOUT_P(lineas(primero+indiceLinea),10,y,1,#175E78,290,#CFE3EC);
+     ELSE
+      TEXTOUT_P(lineas(primero+indiceLinea),14,y,1,#142837,286,#E2E7E8);
+     END;
+    END;
+   END;
+   RECT_P(306,45,318,211,#D3DADB,#D3DADB);
+   y:=45+IP((primero-1)*146/MAX(1,maximo-1));
+   RECT_P(308,y,316,MIN(211,y+20),#217B9C,#217B9C);
+   RECT_P(0,216,79,239,#252C2E,#252C2E);
+   RECT_P(81,216,160,239,#394345,#394345);
+   RECT_P(162,216,205,239,#D3DADB,#D3DADB);
+   RECT_P(207,216,319,239,#217B9C,#217B9C);
+   TEXTOUT_P("SUBIR",17,222,1,#FFFFFF);
+   TEXTOUT_P("BAJAR",96,222,1,#FFFFFF);
+   TEXTOUT_P(STRING(primero)+"/"+STRING(maximo),166,222,0,#586668);
+   TEXTOUT_P("< VOLVER",232,222,1,#FFFFFF);
+   redibujar:=0;
+  END;
+  tecla:=GETKEY; mx:=MOUSE(0); my:=MOUSE(1);
+  nuevo:=primero;
+  IF tecla==2 OR tecla==7 THEN nuevo:=MAX(1,primero-1); END;
+  IF tecla==12 OR tecla==8 THEN nuevo:=MIN(maximo,primero+1); END;
+  IF mx>=0 AND my>=216 THEN
+   IF mx<=79 THEN nuevo:=MAX(1,primero-1); END;
+   IF mx>=81 AND mx<=160 THEN nuevo:=MIN(maximo,primero+1); END;
+   IF mx>=207 THEN tecla:=4; END;
+  END;
+  IF mx>=0 AND my<214 THEN
+   IF tocando==0 THEN tocando:=1; ultimoY:=my; ELSE
+    IF ABS(my-ultimoY)>=12 THEN nuevo:=MAX(1,MIN(maximo,primero+IFTE(my<ultimoY,1,-1))); ultimoY:=my; END;
+   END;
+  ELSE tocando:=0; END;
+  IF nuevo<>primero THEN primero:=nuevo; redibujar:=1; END;
+  WAIT(0.03);
+ UNTIL tecla==4 OR tecla==19 OR tecla==30;
+END;
+
+QH_VER_ECUACION()
+BEGIN
+ IF SIZE(QREACT)==0 AND SIZE(QPROD)==0 THEN
+  QH_AVISO("La ecuación está vacía. Agregue reactivos y productos.");
+ ELSE
+  QH_RESULT("ECUACION EN EDICION","1. REACTIVOS"+CHAR(10)+IFTE(SIZE(QRSHOW)>0,QRSHOW,"(vacio)")+CHAR(10)+CHAR(10)+"2. PRODUCTOS"+CHAR(10)+IFTE(SIZE(QPSHOW)>0,QPSHOW,"(vacio)"));
+ END;
+END;
+
+// ------------------------------------------------- PANTALLAS DE FORMULA
+
+QH_FORMULA_FONDO(titulo,pie)
+BEGIN
+ RECT_P(#E2E7E8);
+ RECT_P(0,0,319,38,#212728,#212728);
+ RECT_P(0,38,319,41,#217B9C,#217B9C);
+ TEXTOUT_P(titulo,12,8,2,#FFFFFF);
+ RECT_P(16,52,303,205,#BECAD4,#FFFFFF);
+ TEXTOUT_P("Rojo = oxidacion   Subindice = atomos",26,188,0,#586668);
+ RECT_P(0,216,319,239,#217B9C,#217B9C);
+ TEXTOUT_P(pie,IP((320-SIZE(pie)*8)/2),222,1,#FFFFFF);
+END;
+
+QH_DIBUJAR_GRUPO(s1,n1,v1,g,n2,v2)
+BEGIN
+ LOCAL x:=35;
+ LOCAL w1:=IFTE(SIZE(s1)==1,27,43);
+ LOCAL wg:=SIZE(g)*18;
+ QH_FORMULA_FONDO("FORMULA INTERPRETADA","ENTER PARA VER INTERPRETACION");
+ IF QREV==1 THEN
+  TEXTOUT_P("+"+STRING(v2),x+10,67,1,#B3261E);
+  IF n2>1 THEN TEXTOUT_P("("+g+")",x,91,4,#111111); TEXTOUT_P(STRING(n2),x+wg+24,126,2,#111111); x:=x+wg+47; ELSE TEXTOUT_P(g,x,91,4,#111111); x:=x+wg+8; END;
+  TEXTOUT_P(STRING(v1),x+3,67,1,#B3261E);
+  TEXTOUT_P(s1,x,91,4,#111111);
+  IF n1>1 THEN TEXTOUT_P(STRING(n1),x+w1-3,126,2,#111111); END;
+  FREEZE; RETURN;
+ END;
+ TEXTOUT_P(IFTE(v1>0,"+"+STRING(v1),STRING(v1)),x+3,67,1,#B3261E);
+ TEXTOUT_P(s1,x,91,4,#111111);
+ IF n1>1 THEN TEXTOUT_P(STRING(n1),x+w1-3,126,2,#111111); END;
+ x:=x+w1+IFTE(n1>1,12,3);
+ TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+10,67,1,#B3261E);
+ IF n2>1 AND SIZE(g)>1 THEN
+  TEXTOUT_P("("+g+")",x,91,4,#111111);
+  TEXTOUT_P(STRING(n2),x+wg+24,126,2,#111111);
+ ELSE
+  TEXTOUT_P(g,x,91,4,#111111);
+  IF n2>1 THEN TEXTOUT_P(STRING(n2),x+wg-3,126,2,#111111); END;
+ END;
+ FREEZE;
+END;
+
+QH_DIBUJAR_FORMULA(s1,n1,v1,s2,n2,v2)
+BEGIN
+ LOCAL x:=72;
+ LOCAL ancho1:=IFTE(SIZE(s1)==1,28,47);
+ LOCAL ancho2:=IFTE(SIZE(s2)==1,28,47);
+ QH_FORMULA_FONDO("FORMULA GENERADA","ENTER PARA VER SOLUCION");
+ TEXTOUT_P(IFTE(v1>0,"+"+STRING(v1),STRING(v1)),x+4,67,1,#B3261E);
+ TEXTOUT_P(s1,x,91,4,#111111);
+ IF n1>1 THEN TEXTOUT_P(STRING(n1),x+ancho1-4,126,2,#111111); END;
+ x:=x+ancho1+IFTE(n1>1,12,2);
+ IF SIZE(s2)>0 THEN
+  TEXTOUT_P(IFTE(v2>0,"+"+STRING(v2),STRING(v2)),x+4,67,1,#B3261E);
+  TEXTOUT_P(s2,x,91,4,#111111);
+  IF n2>1 THEN TEXTOUT_P(STRING(n2),x+ancho2-4,126,2,#111111); END;
+ END;
+ FREEZE;
+END;
+
+// ------------------------------------------------------- TABLA PERIODICA
+
+TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres)
+BEGIN
+ RECT_P(0,0,319,22,#212728,#212728);
+ RECT_P(0,22,319,23,#217B9C,#217B9C);
+ TEXTOUT_P(STRING(seleccionado)+"   "+listaSimbolos(seleccionado)+"   "+listaNombres(seleccionado),8,4,1,#FFFFFF);
+END;
+
+TP_DIBUJAR_TABLA(seleccionado,listaSimbolos,listaNombres,listaGrupos,listaPeriodos)
+BEGIN
+ LOCAL numeroAtomico;
+ RECT_P(#E2E7E8);
+ TP_CABECERA_TABLA(seleccionado,listaSimbolos,listaNombres);
+ FOR numeroAtomico FROM 1 TO 118 DO
+  TP_DIBUJAR_CELDA(numeroAtomico,numeroAtomico==seleccionado,listaSimbolos,listaGrupos,listaPeriodos);
+ END;
+ QH_MENU_PIE("VOLVER","FLECHAS","FICHA");
+END;
+
+// La ficha usa ahora el mismo visor que el resto (secciones y scroll).
+EXPORT TP_FICHA(numeroAtomico)
+BEGIN
+ LOCAL listaSimbolos:=TP_SIMBOLOS();
+ LOCAL listaNombres:=TP_NOMBRES();
+ LOCAL listaMasas:=TP_MASAS();
+ LOCAL listaGrupos:=TP_GRUPOS();
+ LOCAL listaPeriodos:=TP_PERIODOS();
+ LOCAL g:=listaGrupos(numeroAtomico);
+ QH_RESULT(listaSimbolos(numeroAtomico)+" - "+listaNombres(numeroAtomico),
+  "1. IDENTIFICACION"+CHAR(10)+
+  "Simbolo = "+listaSimbolos(numeroAtomico)+CHAR(10)+
+  "Z = "+STRING(numeroAtomico)+CHAR(10)+
+  "Masa atomica = "+STRING(listaMasas(numeroAtomico))+" u"+CHAR(10)+CHAR(10)+
+  "2. UBICACION"+CHAR(10)+
+  "Periodo = "+STRING(listaPeriodos(numeroAtomico))+CHAR(10)+
+  IFTE(g==0,"Serie interna","Grupo = "+STRING(g))+CHAR(10)+
+  "Bloque = "+TP_BLOQUE(numeroAtomico,g)+CHAR(10)+CHAR(10)+
+  "3. CLASIFICACION"+CHAR(10)+
+  "Tipo = "+TP_CLASE(numeroAtomico)+CHAR(10)+
+  "Familia = "+TP_FAMILIA(numeroAtomico,g)+CHAR(10)+CHAR(10)+
+  "4. ATOMO NEUTRO"+CHAR(10)+
+  "p⁺ = e⁻ = Z = "+STRING(numeroAtomico));
+END;
+
+START()
+BEGIN
+ QUIMICA_HYBRID();
+END;
