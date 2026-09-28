@@ -1,4 +1,4 @@
-// QUIMICA HYBRID 2.0 - HP Prime G1/G2
+// QUIMICA HYBRID 2.1 - HP Prime G1/G2
 // Interfaz: HP PPL | Motor: MicroPython
 // Alcance limitado a las Unidades 1 y 2 del programa de referencia.
 // Instalar con HP Connectivity Kit y ejecutar QUIMICA_HYBRID().
@@ -72,7 +72,12 @@ def fail(text):
 
 def sci(x):
     if x==0: return '0'
-    return '{:.6g}'.format(x)
+    s='{:.6g}'.format(x)
+    if 'e' in s:
+        a,b=s.split('e'); n=int(b); digs='⁰¹²³⁴⁵⁶⁷⁸⁹'
+        exp=('⁻' if n<0 else '')+''.join(digs[int(d)] for d in str(abs(n)))
+        return a+'×10'+exp
+    return s
 
 def planck(op,x):
     if x<=0: raise ValueError('El dato debe ser mayor que cero.')
@@ -132,7 +137,7 @@ def electron_config(z):
         if di is not None and si is not None and filled[si][2]>0:
             filled[di][2]+=1; filled[si][2]-=1
     active=[x for x in filled if x[2]]
-    cfg=' '.join(str(n)+l+str(e) for n,l,e in active)
+    cfg=' '.join(str(n)+l+''.join('⁰¹²³⁴⁵⁶⁷⁸⁹'[int(d)] for d in str(e)) for n,l,e in active)
     period=max(x[0] for x in filled if x[2])
     last_n,last_l,last_e=active[-1]
     if last_l=='s': group=last_e
@@ -383,8 +388,25 @@ def null_vector(mat):
     for v in out[1:]: g=fgcd(g,v)
     return [v//g for v in out]
 
+SUBS='₀₁₂₃₄₅₆₇₈₉'
+SUPS='⁰¹²³⁴⁵⁶⁷⁸⁹'
+def sub_number(n): return ''.join(SUBS[int(x)] for x in str(n))
+def sup_number(n):
+    sign='⁺' if n>0 else '⁻'
+    return sign+''.join(SUPS[int(x)] for x in str(abs(n)))
+def oxnum(n): return ('+'+str(n)) if n>0 else ('−'+str(abs(n)) if n<0 else '0')
+def pretty_formula(f):
+    out=''; i=0
+    while i<len(f):
+        if f[i].isdigit():
+            j=i
+            while j<len(f) and f[j].isdigit(): j+=1
+            out+=sub_number(f[i:j]); i=j
+        else: out+=f[i]; i+=1
+    return out
 def show_species(item):
-    f,c,q=item; return f if q==0 else '['+f+']^'+('+' if q>0 else '')+str(q)
+    f,c,q=item; pf=pretty_formula(f)
+    return pf if q==0 else '['+pf+']'+sup_number(q)
 
 KNOWN_NAMES={'KNO2':'nitrito de potasio','K2O':'oxido de potasio / oxido potasico',
  'O2':'oxigeno molecular / dioxigeno','NO':'oxido de nitrogeno (II) / oxido nitrico',
@@ -429,8 +451,8 @@ def balance_equation(encoded):
     coef=null_vector(mat); nl=len(left)
     def side(items,cs):
         return ' + '.join(('' if c==1 else str(c))+show_species(x) for x,c in zip(items,cs))
-    original=side(left,[1]*nl)+' -> '+side(right,[1]*len(right))
-    final=side(left,coef[:nl])+' -> '+side(right,coef[nl:])
+    original=side(left,[1]*nl)+' → '+side(right,[1]*len(right))
+    final=side(left,coef[:nl])+' → '+side(right,coef[nl:])
     # Cambios de oxidacion que el motor puede deducir sin ambiguedad.
     lvals={}; rvals={}
     for x in left:
@@ -445,10 +467,10 @@ def balance_equation(encoded):
             for vb in bv:
                 if va!=vb and (va not in bv or vb not in av): pairs.append((va,vb))
         for va,vb in pairs:
-            typ='OXIDACION' if vb>va else 'REDUCCION'
-            line=e+': '+str(va)+' -> '+str(vb)+'  '+typ+' ('+str(abs(vb-va))+' e- por atomo)'
+            typ='OXIDACIÓN' if vb>va else 'REDUCCIÓN'
+            line=e+': '+oxnum(va)+' → '+oxnum(vb)+'  '+typ+' ('+str(abs(vb-va))+' e⁻ por átomo)'
             if line not in changes: changes.append(line)
-    change_text='\n'.join(changes) if changes else 'No se detecto un cambio redox unico; se aplico balance algebraico.'
+    change_text='\n'.join(changes) if changes else 'No se detectó un cambio redox único; se aplicó balance algebraico.'
     checks=[]
     for e in elems:
         a=sum(c*x[1].get(e,0) for x,c in zip(left,coef[:nl])); b=sum(c*x[1].get(e,0) for x,c in zip(right,coef[nl:]))
@@ -456,7 +478,7 @@ def balance_equation(encoded):
     ql=sum(c*x[2] for x,c in zip(left,coef[:nl])); qr=sum(c*x[2] for x,c in zip(right,coef[nl:]))
     nomen=[]
     for x in left+right: nomen.append(show_species(x)+': '+KNOWN_NAMES.get(x[0],'nombre disponible en el modulo de nomenclatura'))
-    return ('ECUACION INGRESADA\n'+original+'\n\n1. ASIGNACION AUTOMATICA\nEl motor aplica H=+1, O=-2, elementos libres=0 y la suma igual a la carga.\n\n2. OXIDACION Y REDUCCION\n'+change_text+'\n\n3. BALANCE DE MATERIA Y CARGA\nSe construyo y resolvio el sistema de conservacion para '+str(len(elems))+' elementos.\n\n4. ECUACION BALANCEADA\n'+final+'\n\n5. COMPROBACION\n'+'\n'.join(checks)+'\nCarga: '+str(ql)+' = '+str(qr)+'\n\n6. NOMENCLATURA\n'+'\n'.join(nomen))
+    return ('ECUACIÓN INGRESADA\n'+original+'\n\n1. ASIGNACIÓN AUTOMÁTICA\nEl motor aplica H=+1, O=−2, elementos libres=0 y la suma igual a la carga.\n\n2. OXIDACIÓN Y REDUCCIÓN\n'+change_text+'\n\n3. BALANCE DE MATERIA Y CARGA\nSe construyó y resolvió el sistema de conservación para '+str(len(elems))+' elementos.\n\n4. ECUACIÓN BALANCEADA\n'+final+'\n\n5. COMPROBACIÓN\n'+'\n'.join(checks)+'\nCarga: '+str(ql)+' = '+str(qr)+'\n\n6. NOMENCLATURA\n'+'\n'.join(nomen))
 
 def group_compound(z,val,rid,mode):
     z=int(z); val=int(val); rid=int(rid); mode=int(mode)
@@ -504,7 +526,7 @@ def group_compound(z,val,rid,mode):
     sv('QSUB1',n1); sv('QSUB2',ng); sv('QV1',val); sv('QV2',rv)
     sv('QREV',1 if reverse else 0)
     atoms=counts_text([({s1:1},n1),(rcomp,ng)])
-    return ('1. INTERPRETACION\nFormula: '+formula+'\nFuncion: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+rf+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACION\nMCD = '+str(g)+'\nSubindices: '+str(n1)+' y '+str(ng)+('\nEl parentesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACION\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nAtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+'\nTradicional: '+tradname)
+    return ('1. INTERPRETACIÓN\nFórmula: '+pretty_formula(formula)+'\nFunción: '+kind+'\n'+reason+'\n\n2. IONES O GRUPOS\n'+s1+': '+str(val)+'; '+pretty_formula(rf)+': '+str(rv)+'\n\n3. CRUCE Y SIMPLIFICACIÓN\nMCD = '+str(g)+'\nSubíndices: '+str(n1)+' y '+str(ng)+('\nEl paréntesis conserva unido al radical.' if grouped else '')+'\n\n4. COMPROBACIÓN\n'+str(n1)+'('+str(val)+') + '+str(ng)+'('+str(rv)+') = '+str(q1+q2)+'\nCarga total = 0\nÁtomos: '+atoms+'\n\n5. NOMENCLATURA\nStock: '+stock+'\nSistemática: '+systematic+'\nTradicional: '+tradname)
 
 def formulate(z1,z2,v1,v2):
     z1=int(z1); z2=int(z2); v1=int(v1); v2=int(v2)
@@ -548,7 +570,7 @@ def formulate(z1,z2,v1,v2):
     text=('1. ELEMENTOS\n'+s1+' = '+name1+', oxidacion '+str(v1)+'\n'+
           s2+' = '+name2+', oxidacion '+str(v2)+'\n\n2. CRUCE DE VALENCIAS\n'
           +str(abs(v1))+' y '+str(abs(v2))+' se simplifican por '+str(g)+'\n'
-          +'Subindices: '+str(n1)+' y '+str(n2)+'\n\n3. FORMULA\n'+formula+
+          +'Subíndices: '+str(n1)+' y '+str(n2)+'\n\n3. FÓRMULA\n'+pretty_formula(formula)+
           '\n\n4. NOMENCLATURA\nStock: '+stock+'\nSistematica: '+systematic+
           '\nTradicional: '+trad+'\n\n5. COMPROBACION\n'+check)
     return text
@@ -563,49 +585,49 @@ try:
     if 101<=op<=103:
         f,l,e=planck(op,a)
         if op==101:
-            data='lambda = '+sci(a)+' nm\nlambda = '+sci(l)+' m'
+            data='λ = '+sci(a)+' nm\nλ = '+sci(l)+' m'
         elif op==102:
             data='f = '+sci(a)+' Hz'
         else:
             data='E = '+sci(a)+' J'
         text=('1. DATOS\n'+data+'\n\n2. FORMULAS\n'
-              'c = lambda * f\nE = h * f\n\n3. SUSTITUCION\n'
-              'f = c / lambda\nf = '+sci(C)+' / '+sci(l)+'\n'
-              'f = '+sci(f)+' Hz\nE = ('+sci(H)+')('+sci(f)+')\n'
+              'c = λ·ν\nE = h·ν\n\n3. SUSTITUCIÓN\n'
+              'ν = c/λ\nν = '+sci(C)+' / '+sci(l)+'\n'
+              'ν = '+sci(f)+' Hz\nE = ('+sci(H)+')('+sci(f)+')\n'
               'E = '+sci(e)+' J\n\n4. RESULTADO\n'
-              'lambda = '+sci(l)+' m\nf = '+sci(f)+' Hz\n'
+              'λ = '+sci(l)+' m\nν = '+sci(f)+' Hz\n'
               'E = '+sci(e)+' J\nE = '+sci(e/EV)+' eV')
         ok(f,l,e,text)
     elif 201<=op<=202:
         x,y,z=bohr(op,a,b)
         if op==201:
             text=('1. DATOS\nn = '+str(int(a))+'\n\n2. FORMULAS\n'
-                  'rn = 0.529 * n^2\nVn = 2.18769E8 / n\nEn = -13.6057 / n^2\n\n'
-                  '3. SUSTITUCION\nrn = 0.529('+str(int(a))+')^2\n'
-                  'Vn = 2.18769E8 / '+str(int(a))+'\n'
-                  'En = -13.6057 / '+str(int(a))+'^2\n\n4. RESULTADO\n'
-                  'Radio = '+sci(x)+' A\nVelocidad = '+sci(y)+' cm/s\nEnergia = '+sci(z)+' eV')
+                  'rₙ = 0.529·n²\nvₙ = 2.18769×10⁸/n\nEₙ = −13.6057/n²\n\n'
+                  '3. SUSTITUCIÓN\nrₙ = 0.529('+str(int(a))+')²\n'
+                  'vₙ = 2.18769×10⁸/'+str(int(a))+'\n'
+                  'Eₙ = −13.6057/'+str(int(a))+'²\n\n4. RESULTADO\n'
+                  'Radio = '+sci(x)+' Å\nVelocidad = '+sci(y)+' cm·s⁻¹\nEnergía = '+sci(z)+' eV')
             ok(x,y,z,text)
         else:
             kind='EMISION' if x<0 else 'ABSORCION'
             text=('1. DATOS\nni = '+str(int(a))+'\nnf = '+str(int(b))+'\n\n'
-                  '2. FORMULA\nDeltaE = 13.6057(1/ni^2 - 1/nf^2)\n'
-                  'E(foton) = |DeltaE|\nlambda = h*c/E\n\n3. SUSTITUCION\n'
-                  'DeltaE = 13.6057(1/'+str(int(a))+'^2 - 1/'+str(int(b))+'^2)\n'
-                  'DeltaE = '+sci(x)+' eV\nE(foton) = '+sci(y)+' J\n\n'
-                  '4. RESULTADO\nTipo = '+kind+'\nlambda = '+sci(z)+' m\n'
-                  'lambda = '+sci(z*1e9)+' nm\nf = '+sci(C/z)+' Hz')
+                  '2. FÓRMULA\nΔE = 13.6057(1/nᵢ² − 1/n_f²)\n'
+                  'E(fotón) = |ΔE|\nλ = h·c/E\n\n3. SUSTITUCIÓN\n'
+                  'ΔE = 13.6057(1/'+str(int(a))+'² − 1/'+str(int(b))+'²)\n'
+                  'ΔE = '+sci(x)+' eV\nE(fotón) = '+sci(y)+' J\n\n'
+                  '4. RESULTADO\nTipo = '+kind+'\nλ = '+sci(z)+' m\n'
+                  'λ = '+sci(z*1e9)+' nm\nν = '+sci(C/z)+' Hz')
             ok(x,y,z,text)
     elif 301<=op<=303:
         kg,e,ev=einstein(op,a)
         known=('m = '+sci(a)+' kg' if op==301 else
                'm = '+sci(a)+' g = '+sci(kg)+' kg' if op==302 else
                'E = '+sci(a)+' J')
-        formula='E = m*c^2' if op<303 else 'm = E/c^2'
-        subst=('E = ('+sci(kg)+')('+sci(C)+')^2' if op<303 else
-               'm = '+sci(e)+' / ('+sci(C)+')^2')
-        text=('1. DATOS\n'+known+'\nc = '+sci(C)+' m/s\n\n2. FORMULA\n'+formula+
-              '\n\n3. SUSTITUCION\n'+subst+'\n\n4. RESULTADO\n'
+        formula='E = m·c²' if op<303 else 'm = E/c²'
+        subst=('E = ('+sci(kg)+')('+sci(C)+')²' if op<303 else
+               'm = '+sci(e)+' / ('+sci(C)+')²')
+        text=('1. DATOS\n'+known+'\nc = '+sci(C)+' m·s⁻¹\n\n2. FÓRMULA\n'+formula+
+              '\n\n3. SUSTITUCIÓN\n'+subst+'\n\n4. RESULTADO\n'
               'm = '+sci(kg)+' kg\nm = '+sci(kg*1000)+' g\n'
               'E = '+sci(e)+' J\nE = '+sci(e*1e7)+' erg')
         ok(kg,e,ev,text)
@@ -613,9 +635,9 @@ try:
         p,n,e=atom(a,b,c)
         species='NEUTRO' if c==0 else ('CATION' if c>0 else 'ANION')
         text=('1. DATOS\nZ = '+str(int(a))+'\nA = '+str(int(b))+'\nCarga = '+str(int(c))+
-              '\n\n2. RELACIONES\np+ = Z\nn = A - Z\ne- = Z - carga\n\n'
-              '3. SUSTITUCION\nn = '+str(int(b))+' - '+str(int(a))+'\n'
-              'e- = '+str(int(a))+' - ('+str(int(c))+')\n\n4. RESULTADO\n'
+              '\n\n2. RELACIONES\np⁺ = Z\nn⁰ = A − Z\ne⁻ = Z − carga\n\n'
+              '3. SUSTITUCIÓN\nn = '+str(int(b))+' − '+str(int(a))+'\n'
+              'e⁻ = '+str(int(a))+' − ('+str(int(c))+')\n\n4. RESULTADO\n'
               'Protones = '+str(p)+'\nNeutrones = '+str(n)+'\nElectrones = '+str(e)+'\nEspecie = '+species)
         ok(p,n,e,text)
     elif op==402:
@@ -685,7 +707,7 @@ END;
 
 QH_VER_ECUACION()
 BEGIN
- IF SIZE(QREACT)==0 AND SIZE(QPROD)==0 THEN MSGBOX("La ecuacion esta vacia."); ELSE MSGBOX(QRSHOW+"  ->  "+QPSHOW); END;
+ IF SIZE(QREACT)==0 AND SIZE(QPROD)==0 THEN MSGBOX("La ecuación está vacía."); ELSE MSGBOX(QRSHOW+"  →  "+QPSHOW); END;
 END;
 
 QH_ESPECIE()
@@ -944,7 +966,7 @@ QH_ATOMICA()
 BEGIN
  LOCAL o:=1,a:=-1,b:=-1,c:=0;
  REPEAT
-  CHOOSE(o,"ESTRUCTURA ATOMICA","PLANCK: lambda (nm)","PLANCK: frecuencia (Hz)","PLANCK: energia (J)","BOHR: estado n","BOHR: transicion","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energia (J)","ATOMO / ION","CONFIGURACION ELECTRONICA");
+  CHOOSE(o,"ESTRUCTURA ATOMICA","PLANCK: λ (nm)","PLANCK: frecuencia ν (Hz)","PLANCK: energía (J)","BOHR: estado n","BOHR: transición","EINSTEIN: masa (kg)","EINSTEIN: masa (g)","EINSTEIN: energía (J)","ÁTOMO / ION","CONFIGURACIÓN ELECTRÓNICA");
   IF o>=1 AND o<=3 THEN
    a:=1; IF INPUT(a,"PLANCK","Dato conocido") THEN QH_RUN(100+o,a,0,0,0,"PLANCK"); END;
   END;
