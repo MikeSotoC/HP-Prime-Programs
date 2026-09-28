@@ -1014,23 +1014,24 @@ END;
 
 QH_CONFIG_ELECTRONICA(numeroAtomico,encabezado)
 BEGIN
- LOCAL listaN:={1,2,2,3,3,4,3,4,5,4,5,6,4,5,6,7,5,6,7};
- LOCAL listaL:={"s","s","p","s","p","s","d","p","s","d","p","s","f","d","p","s","f","d","p"};
- LOCAL listaCap:={2,2,6,2,6,2,10,6,2,10,6,2,14,10,6,2,14,10,6};
- LOCAL restante:=numeroAtomico;
- LOCAL configuracion:="";
- LOCAL niveles:={};
- LOCAL letras:={};
- LOCAL cantidades:={};
- LOCAL indice;
- LOCAL electrones;
- LOCAL periodo:=0;
- LOCAL grupo:=0;
- LOCAL valencia:=0;
- LOCAL ultimoNivel:=0;
- LOCAL ultimaLetra:="";
- LOCAL ultimoElectron:=0;
- LOCAL simbolos:=TP_SIMBOLOS();
+ LOCAL listaN,listaL,listaCap,restante,configuracion;
+ LOCAL niveles,letras,cantidades,indice,electrones;
+ LOCAL periodo,grupo,valencia,ultimoNivel,ultimaLetra,ultimoElectron,simbolos;
+ listaN:={1,2,2,3,3,4,3,4,5,4,5,6,4,5,6,7,5,6,7};
+ listaL:={"s","s","p","s","p","s","d","p","s","d","p","s","f","d","p","s","f","d","p"};
+ listaCap:={2,2,6,2,6,2,10,6,2,10,6,2,14,10,6,2,14,10,6};
+ restante:=numeroAtomico;
+ configuracion:="";
+ niveles:={};
+ letras:={};
+ cantidades:={};
+ periodo:=0;
+ grupo:=0;
+ valencia:=0;
+ ultimoNivel:=0;
+ ultimaLetra:="";
+ ultimoElectron:=0;
+ simbolos:=TP_SIMBOLOS();
  FOR indice FROM 1 TO SIZE(listaN) DO
   IF restante>0 THEN
    electrones:=MIN(restante,listaCap(indice));
